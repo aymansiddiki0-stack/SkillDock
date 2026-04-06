@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "SkillDock",
+  "version": "0.0.1",
+  "description": "Fills the Skills section of Workday job applications.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://*.myworkdayjobs.com/*",
+    "https://*.myworkdaysite.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SkillDock"
+  }
+}
