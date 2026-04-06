@@ -1,0 +1,8 @@
+{
+  "name": "skilldock",
+  "version": "0.0.1",
+  "description": "Chrome extension that fills the Skills section of Workday job applications.",
+  "private": true,
+  "type": "module",
+  "license": "MIT"
+}
