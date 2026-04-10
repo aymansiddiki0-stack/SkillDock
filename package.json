@@ -4,5 +4,14 @@
   "description": "Chrome extension that fills the Skills section of Workday job applications.",
   "private": true,
   "type": "module",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.2.5",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3"
+  }
 }
