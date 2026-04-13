@@ -18,5 +18,6 @@ await build({
 await cp("manifest.json", `${outdir}/manifest.json`);
 await cp("src/popup/popup.html", `${outdir}/popup.html`);
 await cp("src/popup/popup.css", `${outdir}/popup.css`);
+await cp("icons", `${outdir}/icons`, { recursive: true });
 
 console.log("Built extension into ./dist");
