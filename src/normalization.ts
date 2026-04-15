@@ -18,9 +18,8 @@ export function parseSkillList(text: string): string[] {
   for (const rawLine of text.split("\n")) {
     const skill = normalizeDisplay(rawLine);
     if (skill.length === 0) continue;
-    const key = skill.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (seen.has(skill)) continue;
+    seen.add(skill);
     out.push(skill);
   }
   return out;
