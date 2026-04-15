@@ -7,11 +7,14 @@
   "license": "MIT",
   "scripts": {
     "build": "node build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/chrome": "^0.2.5",
     "esbuild": "^0.28.1",
-    "typescript": "^6.0.3"
+    "jsdom": "^30.0.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }
