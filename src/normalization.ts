@@ -2,6 +2,11 @@ export function normalizeDisplay(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+// Does a Workday dropdown option correspond to the skill we asked for?
+export function matchesOption(optionText: string, skill: string): boolean {
+  return normalizeDisplay(optionText).toLowerCase() === normalizeDisplay(skill).toLowerCase();
+}
+
 export function parseSkillList(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
