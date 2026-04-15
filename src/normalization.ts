@@ -2,9 +2,14 @@ export function normalizeDisplay(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-// Does a Workday dropdown option correspond to the skill we asked for?
-export function matchesOption(optionText: string, skill: string): boolean {
-  return normalizeDisplay(optionText).toLowerCase() === normalizeDisplay(skill).toLowerCase();
+/**
+ * The one and only equality rule for skills.
+ * No fuzzy, substring, prefix, case-insensitive, or synonym matching:
+ * lowercasing here would happily turn "java" into "Java" and "c" into "C"
+ * on a real job application.
+ */
+export function isExactMatch(a: string, b: string): boolean {
+  return normalizeDisplay(a) === normalizeDisplay(b);
 }
 
 export function parseSkillList(text: string): string[] {
