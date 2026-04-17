@@ -13,6 +13,10 @@ describe("parseSkillList", () => {
   it("collapses accidental repeated internal whitespace only", () => {
     expect(parseSkillList("Power   BI\nNode.js")).toEqual(["Power BI", "Node.js"]);
   });
+
+  it("handles CRLF input", () => {
+    expect(parseSkillList("Python\r\nSQL\r\n")).toEqual(["Python", "SQL"]);
+  });
 });
 
 describe("normalizeDisplay", () => {

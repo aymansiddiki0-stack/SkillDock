@@ -32,7 +32,7 @@ export function isExactMatch(a: string, b: string): boolean {
 export function parseSkillList(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const rawLine of text.split("\n")) {
+  for (const rawLine of text.split(/\r?\n/)) {
     const skill = normalizeDisplay(rawLine);
     if (skill.length === 0) continue;
     if (seen.has(skill)) continue;
