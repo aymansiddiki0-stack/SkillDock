@@ -1,12 +1,11 @@
 /**
- * Bounded waiting driven by observable page state: a MutationObserver re-runs
- * the check whenever the DOM changes, with a low-frequency interval as a
- * safety net for state changes that produce no mutation (e.g. a controlled
- * input's `value` property).
+ * Bounded, cancellable waiting.
  *
- * Polling alone meant a 100ms floor on every dropdown read; Workday renders
- * suggestions in one burst, so reacting to the mutation is both faster and
- * cheaper.
+ * Synchronization is driven by observable page state: a MutationObserver
+ * re-runs the check whenever the DOM changes, with a low-frequency interval
+ * as a safety net for state changes that produce no mutation (e.g. a
+ * controlled input's `value` property). Every wait has a timeout and cancels
+ * on an AbortSignal.
  */
 
 export class TimeoutError extends Error {
@@ -16,10 +15,18 @@ export class TimeoutError extends Error {
   }
 }
 
+export class CancelledError extends Error {
+  constructor() {
+    super("Cancelled");
+    this.name = "CancelledError";
+  }
+}
+
 export interface WaitOptions {
   /** Human-readable description used in the timeout message. */
   description: string;
   timeoutMs: number;
+  signal?: AbortSignal;
   /** Node observed for mutations. Defaults to the whole document. */
   root?: Node;
   /** Safety-net polling interval for non-mutation state changes. */
@@ -27,10 +34,15 @@ export interface WaitOptions {
 }
 
 export function waitFor<T>(check: () => T | null, opts: WaitOptions): Promise<T> {
-  const { description, timeoutMs, pollMs = 150 } = opts;
+  const { description, timeoutMs, signal, pollMs = 150 } = opts;
   const root = opts.root ?? document.documentElement;
 
   return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new CancelledError());
+      return;
+    }
+
     let observer: MutationObserver | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -40,6 +52,12 @@ export function waitFor<T>(check: () => T | null, opts: WaitOptions): Promise<T>
       observer = null;
       if (timeoutId !== null) clearTimeout(timeoutId);
       if (intervalId !== null) clearInterval(intervalId);
+      signal?.removeEventListener("abort", onAbort);
+    };
+
+    const onAbort = () => {
+      cleanup();
+      reject(new CancelledError());
     };
 
     const attempt = () => {
@@ -52,6 +70,8 @@ export function waitFor<T>(check: () => T | null, opts: WaitOptions): Promise<T>
 
     // Immediate check — the condition may already hold.
     attempt();
+
+    signal?.addEventListener("abort", onAbort);
 
     observer = new MutationObserver(attempt);
     observer.observe(root, {
@@ -69,6 +89,21 @@ export function waitFor<T>(check: () => T | null, opts: WaitOptions): Promise<T>
   });
 }
 
-export function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/** Cancellable delay. Rejects with CancelledError when the signal aborts. */
+export function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new CancelledError());
+      return;
+    }
+    const id = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(id);
+      reject(new CancelledError());
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
