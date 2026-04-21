@@ -46,8 +46,10 @@ export function waitFor<T>(check: () => T | null, opts: WaitOptions): Promise<T>
     let observer: MutationObserver | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let intervalId: ReturnType<typeof setInterval> | null = null;
+    let settled = false;
 
     const cleanup = () => {
+      settled = true;
       observer?.disconnect();
       observer = null;
       if (timeoutId !== null) clearTimeout(timeoutId);
@@ -56,12 +58,21 @@ export function waitFor<T>(check: () => T | null, opts: WaitOptions): Promise<T>
     };
 
     const onAbort = () => {
+      if (settled) return;
       cleanup();
       reject(new CancelledError());
     };
 
     const attempt = () => {
-      const value = check();
+      if (settled) return;
+      let value: T | null;
+      try {
+        value = check();
+      } catch (err) {
+        cleanup();
+        reject(err);
+        return;
+      }
       if (value !== null) {
         cleanup();
         resolve(value);
@@ -70,6 +81,7 @@ export function waitFor<T>(check: () => T | null, opts: WaitOptions): Promise<T>
 
     // Immediate check — the condition may already hold.
     attempt();
+    if (settled) return;
 
     signal?.addEventListener("abort", onAbort);
 
