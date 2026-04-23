@@ -48,3 +48,39 @@ export function accessibleName(el: Element): string {
   if (placeholder) return normalizeDisplay(placeholder);
   return "";
 }
+
+/**
+ * Text of the nearest preceding heading/legend for an element, walking up the
+ * ancestor chain and looking at earlier siblings. Bounded so it cannot scan
+ * the entire page.
+ */
+export function nearestHeadingText(el: Element, maxAncestors = 8): string {
+  const isHeading = (node: Element) =>
+    /^H[1-6]$/.test(node.tagName) ||
+    node.tagName === "LEGEND" ||
+    node.getAttribute("role") === "heading";
+
+  let node: Element | null = el;
+  for (let depth = 0; node && depth < maxAncestors; depth++) {
+    for (let sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
+      if (isHeading(sib)) return normalizeDisplay(sib.textContent ?? "");
+      const nested = sib.querySelector("h1,h2,h3,h4,h5,h6,legend,[role='heading']");
+      if (nested) return normalizeDisplay(nested.textContent ?? "");
+    }
+    node = node.parentElement;
+    if (node && isHeading(node)) return normalizeDisplay(node.textContent ?? "");
+  }
+  return "";
+}
+
+/** data-automation-id of the element or its nearest ancestor that has one. */
+export function automationIdChain(el: Element, maxAncestors = 10): string[] {
+  const ids: string[] = [];
+  let node: Element | null = el;
+  for (let depth = 0; node && depth < maxAncestors; depth++) {
+    const id = node.getAttribute("data-automation-id");
+    if (id) ids.push(id.toLowerCase());
+    node = node.parentElement;
+  }
+  return ids;
+}
