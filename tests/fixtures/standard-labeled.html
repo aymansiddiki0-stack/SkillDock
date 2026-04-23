@@ -1,0 +1,27 @@
+<!-- Original, sanitized Workday-style fixture: a labeled Skills multiselect
+     alongside unrelated form fields. Not copied from any Workday tenant. -->
+<div data-automation-id="applyFlowPage">
+  <nav role="navigation">
+    <input type="search" aria-label="Search for jobs" />
+  </nav>
+  <form>
+    <div data-automation-id="formField-school">
+      <label for="school-input">School or University</label>
+      <input id="school-input" type="text" role="combobox" aria-expanded="false" />
+    </div>
+
+    <h3>Skills</h3>
+    <div data-automation-id="formField-skillsPrompt">
+      <div data-automation-id="multiselectInputContainer">
+        <ul data-automation-id="selectedItemList"></ul>
+        <label for="skills-input">Skills</label>
+        <input id="skills-input" type="text" placeholder="Search" data-automation-id="searchBox" />
+      </div>
+    </div>
+
+    <div data-automation-id="formField-language">
+      <label for="lang-input">Language</label>
+      <input id="lang-input" type="text" role="combobox" aria-expanded="false" />
+    </div>
+  </form>
+</div>
