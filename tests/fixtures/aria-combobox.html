@@ -1,0 +1,23 @@
+<!-- ARIA-first variant: no data-automation-id hooks at all; the field is
+     identified purely through accessibility relationships. -->
+<main>
+  <section>
+    <h2 id="skills-heading">Skills</h2>
+    <p>Add skills so the hiring team can learn more about you.</p>
+    <div>
+      <input
+        type="text"
+        role="combobox"
+        aria-labelledby="skills-heading"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-controls="skills-listbox"
+      />
+    </div>
+  </section>
+  <section>
+    <h2 id="loc-heading">Location</h2>
+    <input type="text" role="combobox" aria-labelledby="loc-heading" aria-expanded="false" />
+  </section>
+</main>
+<ul id="skills-listbox" role="listbox" style="display: none"></ul>

@@ -1,0 +1,16 @@
+<!-- Many unrelated comboboxes; only one is the editable Skills field. Also
+     includes a disabled duplicate and a hidden duplicate that must lose. -->
+<form>
+  <div><label for="src">How did you hear about us?</label>
+    <input id="src" type="text" role="combobox" aria-expanded="false" /></div>
+  <div><label for="country">Country</label>
+    <input id="country" type="text" role="combobox" aria-expanded="false" /></div>
+  <h3>Skills</h3>
+  <div data-automation-id="formField-skills">
+    <input type="text" aria-label="Skills" role="combobox" aria-expanded="false" disabled />
+    <input type="text" aria-label="Skills" role="combobox" aria-expanded="false" style="display:none" />
+    <input id="real-skills" type="text" aria-label="Skills" role="combobox" aria-expanded="false" />
+  </div>
+  <div><label for="degree">Degree</label>
+    <input id="degree" type="text" role="combobox" aria-expanded="false" /></div>
+</form>
