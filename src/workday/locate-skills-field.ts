@@ -8,7 +8,7 @@
  * returns the highest scorer.
  */
 
-import { accessibleName, isEditableField, isVisible, nearestHeadingText } from "../dom";
+import { accessibleName, automationIdChain, isEditableField, isVisible, nearestHeadingText } from "../dom";
 
 export interface ScoredCandidate {
   element: HTMLElement;
@@ -45,6 +45,14 @@ export function scoreCandidate(el: HTMLElement): ScoredCandidate | null {
   }
   if (el.hasAttribute("aria-expanded") || el.hasAttribute("aria-controls") || el.hasAttribute("aria-owns")) {
     add(1, "owns/controls a popup");
+  }
+
+  const autoIds = automationIdChain(el);
+  if (autoIds.some((id) => id.includes("skill"))) {
+    add(4, "workday automation id mentions skills");
+  }
+  if (autoIds.some((id) => id.includes("multiselect") || id.includes("searchbox"))) {
+    add(2, "workday multiselect/search-box container");
   }
 
   if (score <= 0) return null;
