@@ -5,7 +5,9 @@
  * locator never keys off generated class names, randomized IDs, or a fixed DOM
  * shape. Instead it collects every editable text/search input and combobox on
  * the page, scores each candidate with centralized semantic signals, and
- * returns the highest scorer.
+ * accepts a candidate only when its score clears a threshold AND clearly beats
+ * the runner-up. Otherwise detection is reported as ambiguous and the user can
+ * pick the field manually.
  */
 
 import { accessibleName, automationIdChain, isEditableField, isVisible, nearestHeadingText } from "../dom";
@@ -16,11 +18,19 @@ export interface ScoredCandidate {
   reasons: string[];
 }
 
+export type LocateResult =
+  | { kind: "found"; field: HTMLElement; score: number; reasons: string[] }
+  | { kind: "ambiguous"; candidates: ScoredCandidate[] }
+  | { kind: "not-found" };
+
 const SKILLS_WORD = /\bskills?\b/i;
 
 /** Fields that must never be treated as the Skills field. */
 const DISQUALIFYING_NAME =
   /\b(location|city|country|state|school|university|college|degree|field of study|language|phone|email|name|address|search jobs|how did you hear|source|website|linkedin)\b/i;
+
+const ACCEPT_THRESHOLD = 6;
+const LEAD_MARGIN = 3;
 
 export function scoreCandidate(el: HTMLElement): ScoredCandidate | null {
   if (!isEditableField(el) || !isVisible(el)) return null;
@@ -110,11 +120,17 @@ export function collectCandidates(doc: Document = document): HTMLElement[] {
   return out;
 }
 
-export function locateSkillsField(doc: Document = document): HTMLElement | null {
+export function locateSkillsField(doc: Document = document): LocateResult {
   const scored = collectCandidates(doc)
     .map(scoreCandidate)
     .filter((c): c is ScoredCandidate => c !== null)
     .sort((a, b) => b.score - a.score);
 
-  return scored[0]?.element ?? null;
+  if (scored.length === 0) return { kind: "not-found" };
+
+  const [best, second] = scored;
+  if (best && best.score >= ACCEPT_THRESHOLD && (!second || best.score - second.score >= LEAD_MARGIN || second.score < ACCEPT_THRESHOLD)) {
+    return { kind: "found", field: best.element, score: best.score, reasons: best.reasons };
+  }
+  return { kind: "ambiguous", candidates: scored.slice(0, 5) };
 }

@@ -7,17 +7,37 @@ beforeEach(resetDom);
 describe("locateSkillsField", () => {
   it("finds a standard labeled Workday-style Skills combobox", () => {
     loadFixture("standard-labeled.html");
-    expect(locateSkillsField()?.id).toBe("skills-input");
+    const result = locateSkillsField();
+    expect(result.kind).toBe("found");
+    if (result.kind === "found") {
+      expect(result.field.id).toBe("skills-input");
+    }
   });
 
   it("finds an ARIA-only Skills combobox with no automation ids", () => {
     loadFixture("aria-combobox.html");
-    const field = locateSkillsField();
-    expect(field?.getAttribute("aria-labelledby")).toBe("skills-heading");
+    const result = locateSkillsField();
+    expect(result.kind).toBe("found");
+    if (result.kind === "found") {
+      expect(result.field.getAttribute("aria-labelledby")).toBe("skills-heading");
+    }
   });
 
   it("picks the enabled, visible Skills field among many comboboxes", () => {
     loadFixture("multiple-comboboxes.html");
-    expect(locateSkillsField()?.id).toBe("real-skills");
+    const result = locateSkillsField();
+    expect(result.kind).toBe("found");
+    if (result.kind === "found") {
+      expect(result.field.id).toBe("real-skills");
+    }
+  });
+
+  it("refuses to guess between two equally plausible Skills fields", () => {
+    loadFixture("ambiguous.html");
+    const result = locateSkillsField();
+    expect(result.kind).toBe("ambiguous");
+    if (result.kind === "ambiguous") {
+      expect(result.candidates.length).toBeGreaterThanOrEqual(2);
+    }
   });
 });
