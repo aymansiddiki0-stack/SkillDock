@@ -18,11 +18,16 @@ export interface ScoredCandidate {
 
 const SKILLS_WORD = /\bskills?\b/i;
 
+/** Fields that must never be treated as the Skills field. */
+const DISQUALIFYING_NAME =
+  /\b(location|city|country|state|school|university|college|degree|field of study|language|phone|email|name|address|search jobs|how did you hear|source|website|linkedin)\b/i;
+
 export function scoreCandidate(el: HTMLElement): ScoredCandidate | null {
   if (!isEditableField(el) || !isVisible(el)) return null;
 
   const name = accessibleName(el);
   const heading = nearestHeadingText(el);
+  if (DISQUALIFYING_NAME.test(name)) return null;
 
   let score = 0;
   const reasons: string[] = [];
