@@ -10,7 +10,7 @@
  * pick the field manually.
  */
 
-import { accessibleName, automationIdChain, isEditableField, isVisible, nearestHeadingText } from "../dom";
+import { accessibleName, automationIdChain, isEditableField, isVisible, nearestHeadingText, queryAllDeep } from "../dom";
 
 export interface ScoredCandidate {
   element: HTMLElement;
@@ -112,7 +112,7 @@ export function collectCandidates(doc: Document = document): HTMLElement[] {
   const selector = "input[type='text'], input[type='search'], input:not([type]), [role='combobox']";
   const seen = new Set<Element>();
   const out: HTMLElement[] = [];
-  for (const el of doc.querySelectorAll(selector)) {
+  for (const el of queryAllDeep(selector, doc)) {
     if (seen.has(el)) continue;
     seen.add(el);
     if (el instanceof HTMLElement) out.push(el);

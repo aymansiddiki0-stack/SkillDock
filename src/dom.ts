@@ -88,6 +88,21 @@ export function nearestHeadingText(el: Element, maxAncestors = 8): string {
   return "";
 }
 
+/**
+ * Collect elements matching `selector` in the document and inside any *open*
+ * shadow roots (one recursive pass; closed shadow roots are not accessible
+ * and are not bypassed).
+ */
+export function queryAllDeep(selector: string, root: ParentNode = document): Element[] {
+  const out: Element[] = [...root.querySelectorAll(selector)];
+  const walker = root.querySelectorAll("*");
+  for (const el of walker) {
+    const shadow = (el as HTMLElement).shadowRoot;
+    if (shadow) out.push(...queryAllDeep(selector, shadow));
+  }
+  return out;
+}
+
 /** data-automation-id of the element or its nearest ancestor that has one. */
 export function automationIdChain(el: Element, maxAncestors = 10): string[] {
   const ids: string[] = [];
