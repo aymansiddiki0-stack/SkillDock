@@ -1,21 +1,68 @@
-import { isEditableField, isVisible } from "../dom";
+/**
+ * Semantic Skills-field locator.
+ *
+ * Workday tenants render the Skills autocomplete with varying markup, so this
+ * locator never keys off generated class names, randomized IDs, or a fixed DOM
+ * shape. Instead it collects every editable text/search input and combobox on
+ * the page, scores each candidate with centralized semantic signals, and
+ * returns the highest scorer.
+ */
 
-/** Ordered from most to least specific. First hit wins. */
-const SKILLS_SELECTORS = [
-  "[data-automation-id='skillsPrompt'] input",
-  "[data-automation-id='formField-skills'] input",
-  "input[aria-label='Skills']",
-  "input[placeholder='Skills']",
-  "#skills-input",
-];
+import { accessibleName, isEditableField, isVisible, nearestHeadingText } from "../dom";
 
-export function locateSkillsField(doc: Document = document): HTMLInputElement | null {
-  for (const selector of SKILLS_SELECTORS) {
-    for (const el of doc.querySelectorAll(selector)) {
-      if (el instanceof HTMLInputElement && isEditableField(el) && isVisible(el)) {
-        return el;
-      }
-    }
+export interface ScoredCandidate {
+  element: HTMLElement;
+  score: number;
+  reasons: string[];
+}
+
+const SKILLS_WORD = /\bskills?\b/i;
+
+export function scoreCandidate(el: HTMLElement): ScoredCandidate | null {
+  if (!isEditableField(el) || !isVisible(el)) return null;
+
+  const name = accessibleName(el);
+  const heading = nearestHeadingText(el);
+
+  let score = 0;
+  const reasons: string[] = [];
+  const add = (points: number, reason: string) => {
+    score += points;
+    reasons.push(`${points >= 0 ? "+" : ""}${points} ${reason}`);
+  };
+
+  if (SKILLS_WORD.test(name)) add(5, `accessible name mentions skills ("${name}")`);
+  if (SKILLS_WORD.test(heading)) add(4, `nearest heading mentions skills ("${heading}")`);
+
+  const role = el.getAttribute("role");
+  if (role === "combobox" || el.getAttribute("aria-autocomplete")) {
+    add(2, "combobox / aria-autocomplete semantics");
   }
-  return null;
+  if (el.hasAttribute("aria-expanded") || el.hasAttribute("aria-controls") || el.hasAttribute("aria-owns")) {
+    add(1, "owns/controls a popup");
+  }
+
+  if (score <= 0) return null;
+  return { element: el, score, reasons };
+}
+
+export function collectCandidates(doc: Document = document): HTMLElement[] {
+  const selector = "input[type='text'], input[type='search'], input:not([type]), [role='combobox']";
+  const seen = new Set<Element>();
+  const out: HTMLElement[] = [];
+  for (const el of doc.querySelectorAll(selector)) {
+    if (seen.has(el)) continue;
+    seen.add(el);
+    if (el instanceof HTMLElement) out.push(el);
+  }
+  return out;
+}
+
+export function locateSkillsField(doc: Document = document): HTMLElement | null {
+  const scored = collectCandidates(doc)
+    .map(scoreCandidate)
+    .filter((c): c is ScoredCandidate => c !== null)
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.element ?? null;
 }
