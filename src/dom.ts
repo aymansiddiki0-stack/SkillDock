@@ -1,5 +1,18 @@
 import { normalizeDisplay } from "./normalization";
 
+/**
+ * jsdom (used by the test suite) has no layout engine, so every rect is
+ * empty. Detect once whether layout information is available; when it is not,
+ * fall back to style/attribute checks only.
+ */
+let layoutSupport: boolean | null = null;
+function hasLayoutSupport(): boolean {
+  if (layoutSupport === null) {
+    layoutSupport = document.documentElement.getClientRects().length > 0;
+  }
+  return layoutSupport;
+}
+
 export function isVisible(el: Element): boolean {
   if (!el.isConnected) return false;
   for (let node: Element | null = el; node; node = node.parentElement) {
@@ -8,8 +21,10 @@ export function isVisible(el: Element): boolean {
     const style = getComputedStyle(node);
     if (style.display === "none" || style.visibility === "hidden") return false;
   }
-  const rect = el.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) return false;
+  if (hasLayoutSupport()) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return false;
+  }
   return true;
 }
 
