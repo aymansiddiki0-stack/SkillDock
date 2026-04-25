@@ -55,8 +55,47 @@ export function scoreCandidate(el: HTMLElement): ScoredCandidate | null {
     add(2, "workday multiselect/search-box container");
   }
 
+  // A selected-values container with removable chips next to the input is a
+  // strong multiselect signal (but never sufficient on its own).
+  const container = fieldContainer(el);
+  if (container) {
+    const hasChips =
+      container.querySelector("[data-automation-id='selectedItem']") !== null ||
+      containerHasRemovableChip(container);
+    if (hasChips) add(2, "selected-value chips present in the same field container");
+  }
+
   if (score <= 0) return null;
   return { element: el, score, reasons };
+}
+
+function containerHasRemovableChip(container: Element): boolean {
+  for (const btn of container.querySelectorAll("button")) {
+    const label = (btn.getAttribute("aria-label") ?? btn.textContent ?? "").toLowerCase();
+    if (/\b(remove|delete|clear)\b/.test(label) && btn.closest("[role='listitem'], li, [data-automation-id]")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The container that scopes one form field (input + chips + label). Prefers
+ * Workday's stable formField/multiselect automation containers, then generic
+ * grouping elements, then a bounded ancestor.
+ */
+export function fieldContainer(el: Element): Element | null {
+  return (
+    el.closest("[data-automation-id^='formField'], [data-automation-id*='multiselect' i]") ??
+    el.closest("fieldset, [role='group']") ??
+    boundedAncestor(el, 4)
+  );
+}
+
+function boundedAncestor(el: Element, levels: number): Element | null {
+  let node: Element | null = el;
+  for (let i = 0; i < levels && node?.parentElement; i++) node = node.parentElement;
+  return node;
 }
 
 export function collectCandidates(doc: Document = document): HTMLElement[] {
