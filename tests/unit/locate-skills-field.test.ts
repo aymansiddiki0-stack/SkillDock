@@ -32,6 +32,16 @@ describe("locateSkillsField", () => {
     }
   });
 
+  it("reports not-found on a read-only review page", () => {
+    loadFixture("readonly-review.html");
+    expect(locateSkillsField().kind).toBe("not-found");
+  });
+
+  it("ignores the word 'skills' in prose and site-wide search fields", () => {
+    loadFixture("no-skills-field.html");
+    expect(locateSkillsField().kind).toBe("not-found");
+  });
+
   it("refuses to guess between two equally plausible Skills fields", () => {
     loadFixture("ambiguous.html");
     const result = locateSkillsField();
