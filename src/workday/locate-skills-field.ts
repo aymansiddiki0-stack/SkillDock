@@ -29,11 +29,15 @@ const SKILLS_WORD = /\bskills?\b/i;
 const DISQUALIFYING_NAME =
   /\b(location|city|country|state|school|university|college|degree|field of study|language|phone|email|name|address|search jobs|how did you hear|source|website|linkedin)\b/i;
 
+/** Landmarks where an application-form field never lives. */
+const DISQUALIFYING_ANCESTOR = "nav, header[role='banner'], [role='navigation'], [role='search'], [role='banner']";
+
 const ACCEPT_THRESHOLD = 6;
 const LEAD_MARGIN = 3;
 
 export function scoreCandidate(el: HTMLElement): ScoredCandidate | null {
   if (!isEditableField(el) || !isVisible(el)) return null;
+  if (el.closest(DISQUALIFYING_ANCESTOR)) return null;
 
   const name = accessibleName(el);
   const heading = nearestHeadingText(el);
