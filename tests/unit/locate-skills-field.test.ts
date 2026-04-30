@@ -32,6 +32,12 @@ describe("locateSkillsField", () => {
     }
   });
 
+  it("still detects the field when chips are already selected", () => {
+    loadFixture("existing-skills.html");
+    const result = locateSkillsField();
+    expect(result.kind).toBe("found");
+  });
+
   it("reports not-found on a read-only review page", () => {
     loadFixture("readonly-review.html");
     expect(locateSkillsField().kind).toBe("not-found");
@@ -48,6 +54,18 @@ describe("locateSkillsField", () => {
     expect(result.kind).toBe("ambiguous");
     if (result.kind === "ambiguous") {
       expect(result.candidates.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("never selects location/school/language/country/source fields", () => {
+    for (const fixture of ["standard-labeled.html", "multiple-comboboxes.html"]) {
+      loadFixture(fixture);
+      const result = locateSkillsField();
+      expect(result.kind).toBe("found");
+      if (result.kind === "found") {
+        const name = result.field.getAttribute("aria-label") ?? result.field.id;
+        expect(name).toMatch(/skills/i);
+      }
     }
   });
 });
