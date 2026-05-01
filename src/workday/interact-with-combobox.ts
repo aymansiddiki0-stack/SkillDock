@@ -103,6 +103,19 @@ export function dismissDropdown(input: HTMLInputElement): void {
   keyEvents(input, "Escape");
 }
 
+/** Click an option the way a pointer interaction would. */
 export function clickOption(option: HTMLElement): void {
-  fire(option, new MouseEvent("click", { bubbles: true, cancelable: true }));
+  option.scrollIntoView({ block: "nearest" });
+  const rect = option.getBoundingClientRect();
+  const coords = {
+    clientX: rect.left + rect.width / 2,
+    clientY: rect.top + rect.height / 2,
+    button: 0,
+    bubbles: true,
+  } as const;
+  fire(option, new PointerEvent("pointerdown", { ...coords, pointerId: 1, isPrimary: true }));
+  fire(option, new MouseEvent("mousedown", { ...coords, cancelable: true }));
+  fire(option, new PointerEvent("pointerup", { ...coords, pointerId: 1, isPrimary: true }));
+  fire(option, new MouseEvent("mouseup", { ...coords }));
+  fire(option, new MouseEvent("click", { ...coords, cancelable: true }));
 }
