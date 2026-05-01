@@ -18,6 +18,12 @@ function inputEvents(el: HTMLInputElement, data: string | null, inputType: strin
   fire(el, new InputEvent("input", { bubbles: true, data, inputType }));
 }
 
+function keyEvents(el: HTMLElement, key: string): void {
+  const init: KeyboardEventInit = { key, bubbles: true, cancelable: true };
+  fire(el, new KeyboardEvent("keydown", init));
+  fire(el, new KeyboardEvent("keyup", init));
+}
+
 function focusField(input: HTMLElement): void {
   input.scrollIntoView({ block: "center" });
   fire(input, new PointerEvent("pointerdown", { bubbles: true }));
@@ -63,6 +69,38 @@ export async function typeQuery(input: HTMLInputElement, text: string, signal?: 
   }
   await delay(60, signal);
   return input.value === text;
+}
+
+/**
+ * Press Enter in the field. Workday's Skills search box requires an explicit
+ * Enter to run the search and open the suggestion dropdown — suggestions do
+ * not appear from typing alone. Includes legacy keyCode/which for handlers
+ * that still read them.
+ */
+export function pressEnter(input: HTMLInputElement): void {
+  const init: KeyboardEventInit = {
+    key: "Enter",
+    code: "Enter",
+    keyCode: 13,
+    which: 13,
+    bubbles: true,
+    cancelable: true,
+  } as KeyboardEventInit;
+  fire(input, new KeyboardEvent("keydown", init));
+  fire(input, new KeyboardEvent("keypress", init));
+  fire(input, new KeyboardEvent("keyup", init));
+}
+
+/** Press a single key (keydown + keyup) on the field. */
+export function pressKey(input: HTMLElement, key: string, code = key): void {
+  const init: KeyboardEventInit = { key, code, bubbles: true, cancelable: true };
+  fire(input, new KeyboardEvent("keydown", init));
+  fire(input, new KeyboardEvent("keyup", init));
+}
+
+/** Close an open suggestion popup without selecting anything. */
+export function dismissDropdown(input: HTMLInputElement): void {
+  keyEvents(input, "Escape");
 }
 
 export function clickOption(option: HTMLElement): void {
