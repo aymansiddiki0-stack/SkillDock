@@ -1,3 +1,5 @@
+import { delay } from "../wait";
+
 function nativeValueSetter(input: HTMLInputElement): (value: string) => void {
   const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
   const set = desc?.set;
@@ -33,14 +35,33 @@ export function clearQuery(input: HTMLInputElement): void {
   inputEvents(input, null, "deleteContentBackward");
 }
 
-/** Enter `text` into the field, returning true when the value stuck. */
-export function typeQuery(input: HTMLInputElement, text: string): boolean {
+/**
+ * Enter `text` into the field, returning true when the value stuck.
+ * Falls back to character-by-character entry for frameworks that reset
+ * wholesale value assignment.
+ */
+export async function typeQuery(input: HTMLInputElement, text: string, signal?: AbortSignal): Promise<boolean> {
   focusField(input);
   clearQuery(input);
 
   const setValue = nativeValueSetter(input);
   setValue(text);
   inputEvents(input, text, "insertText");
+  await delay(60, signal);
+  if (input.value === text) return true;
+
+  // Fallback: controlled character-by-character entry.
+  clearQuery(input);
+  let expected = "";
+  for (const ch of text) {
+    expected += ch;
+    fire(input, new KeyboardEvent("keydown", { key: ch, bubbles: true, cancelable: true }));
+    setValue(expected);
+    inputEvents(input, ch, "insertText");
+    fire(input, new KeyboardEvent("keyup", { key: ch, bubbles: true }));
+    await delay(25, signal);
+  }
+  await delay(60, signal);
   return input.value === text;
 }
 
