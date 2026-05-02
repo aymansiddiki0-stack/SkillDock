@@ -30,15 +30,25 @@ function resolveAriaTarget(input: Element): Element | null {
   return null;
 }
 
+const OPTION_SELECTOR =
+  "[role='option'], [data-automation-id='menuItem'], [data-automation-id='promptOption'], [data-automation-id='promptLeafNode']";
+
+/** Keep only elements whose ancestors are not themselves in the set. */
+function outermost(els: HTMLElement[]): HTMLElement[] {
+  return els.filter((el) => !els.some((other) => other !== el && other.contains(el)));
+}
+
 function visibleOptions(container: Element): HTMLElement[] {
   const opts: HTMLElement[] = [];
-  for (const el of container.querySelectorAll("[role='option']")) {
+  for (const el of container.querySelectorAll(OPTION_SELECTOR)) {
     if (!(el instanceof HTMLElement)) continue;
     if (!isVisible(el)) continue;
     if (el.getAttribute("aria-disabled") === "true") continue;
     opts.push(el);
   }
-  return opts;
+  // A Workday row matches several selectors at once (menuItem →
+  // promptLeafNode → promptOption); collapse to one element per row.
+  return outermost([...new Set(opts)]);
 }
 
 /** Display text of one option, using only allowed display normalization. */
