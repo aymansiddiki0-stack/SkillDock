@@ -7,6 +7,8 @@ export interface DropdownState {
   options: HTMLElement[];
 }
 
+const NO_MATCH_TEXT = /\bno (matches|results|items|suggestions)\b/i;
+
 function idTokens(input: Element, attr: string): string[] {
   return (input.getAttribute(attr) ?? "").split(/\s+/).filter(Boolean);
 }
@@ -56,17 +58,20 @@ export function readDropdownState(input: HTMLElement): DropdownState | null {
   if (linked) {
     const options = visibleOptions(linked);
     if (options.length > 0) return { kind: "options", listbox: linked, options };
-    return null;
+    if (NO_MATCH_TEXT.test(linked.textContent ?? "")) return { kind: "empty", listbox: linked, options: [] };
+    return null; // linked popup exists but has not produced content yet
   }
 
   // Fallback: an unambiguous visible listbox anywhere in the document —
   // Workday portals the suggestion popup under <body>, outside the field.
   const candidates = queryAllDeep("[role='listbox']", doc).filter(
-    (el) => isVisible(el) && visibleOptions(el).length > 0,
+    (el) => isVisible(el) && (visibleOptions(el).length > 0 || NO_MATCH_TEXT.test(el.textContent ?? "")),
   );
   if (candidates.length === 1) {
     const container = candidates[0]!;
-    return { kind: "options", listbox: container, options: visibleOptions(container) };
+    const options = visibleOptions(container);
+    if (options.length > 0) return { kind: "options", listbox: container, options };
+    return { kind: "empty", listbox: container, options: [] };
   }
 
   // With multiple recognizable containers visible, the situation is
