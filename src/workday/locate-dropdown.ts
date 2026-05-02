@@ -1,4 +1,4 @@
-import { isVisible } from "../dom";
+import { isVisible, queryAllDeep } from "../dom";
 import { normalizeDisplay } from "../normalization";
 
 export interface DropdownState {
@@ -19,6 +19,12 @@ function resolveAriaTarget(input: Element): Element | null {
       if (el && isVisible(el)) return el;
     }
   }
+  const active = input.getAttribute("aria-activedescendant");
+  if (active) {
+    const opt = doc.getElementById(active);
+    const listbox = opt?.closest("[role='listbox']");
+    if (listbox && isVisible(listbox)) return listbox;
+  }
   return null;
 }
 
@@ -38,10 +44,32 @@ export function optionText(option: Element): string {
   return normalizeDisplay(option.textContent ?? "");
 }
 
+/**
+ * Read the current dropdown state for `input`, or null when no associated
+ * dropdown is currently visible. Never picks between multiple unrelated
+ * candidate popups.
+ */
 export function readDropdownState(input: HTMLElement): DropdownState | null {
+  const doc = input.ownerDocument;
+
   const linked = resolveAriaTarget(input);
-  if (!linked) return null;
-  const options = visibleOptions(linked);
-  if (options.length === 0) return null;
-  return { kind: "options", listbox: linked, options };
+  if (linked) {
+    const options = visibleOptions(linked);
+    if (options.length > 0) return { kind: "options", listbox: linked, options };
+    return null;
+  }
+
+  // Fallback: an unambiguous visible listbox anywhere in the document —
+  // Workday portals the suggestion popup under <body>, outside the field.
+  const candidates = queryAllDeep("[role='listbox']", doc).filter(
+    (el) => isVisible(el) && visibleOptions(el).length > 0,
+  );
+  if (candidates.length === 1) {
+    const container = candidates[0]!;
+    return { kind: "options", listbox: container, options: visibleOptions(container) };
+  }
+
+  // With multiple recognizable containers visible, the situation is
+  // ambiguous — never guess between unrelated popups.
+  return null;
 }
