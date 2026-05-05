@@ -53,7 +53,13 @@ function visibleOptions(container: Element): HTMLElement[] {
 
 /** Display text of one option, using only allowed display normalization. */
 export function optionText(option: Element): string {
-  return normalizeDisplay(option.textContent ?? "");
+  // Workday puts the canonical option label in data-automation-label on the
+  // promptOption node; textContent can include checkbox scaffolding.
+  const labelEl = option.matches("[data-automation-label]")
+    ? option
+    : option.querySelector("[data-automation-label]");
+  const label = labelEl?.getAttribute("data-automation-label");
+  return normalizeDisplay(label ?? option.textContent ?? "");
 }
 
 /**
