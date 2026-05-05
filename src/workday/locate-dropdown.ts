@@ -51,6 +51,25 @@ function visibleOptions(container: Element): HTMLElement[] {
   return outermost([...new Set(opts)]);
 }
 
+/**
+ * Whether an option is already in the selected state. Workday's Skills menu
+ * is a checkbox multiselect: clicking a selected row would REMOVE the skill,
+ * so this must be checked before clicking, and it doubles as selection
+ * confirmation after clicking.
+ */
+export function isOptionSelected(option: Element): boolean {
+  if (option.getAttribute("aria-selected") === "true") return true;
+  if (option.getAttribute("data-automation-selected") === "true") return true;
+
+  const ariaLabel = option.getAttribute("aria-label") ?? "";
+  if (/\bchecked\b/i.test(ariaLabel)) return true;
+
+  for (const box of option.querySelectorAll("input[type='checkbox']")) {
+    if (box instanceof HTMLInputElement && box.checked) return true;
+  }
+  return false;
+}
+
 /** Display text of one option, using only allowed display normalization. */
 export function optionText(option: Element): string {
   // Workday puts the canonical option label in data-automation-label on the
