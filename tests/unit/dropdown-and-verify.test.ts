@@ -51,6 +51,34 @@ describe("readDropdownState", () => {
     expect(readDropdownState(input)).toBeNull();
   });
 
+  it("ignores the selected-pills strip (a listbox of selectedItem pills) next to the real dropdown", () => {
+    // Real Workday: after the first selection, the field shows a
+    // role=listbox pills strip that must never count as a dropdown.
+    document.body.innerHTML = `
+      <div>
+        <ul role="listbox" data-automation-id="selectedItemList" aria-label="items selected">
+          <li role="presentation" data-automation-id="menuItem">
+            <div role="option" data-automation-id="selectedItem" aria-label="Apache Airflow, press delete to clear value.">
+              <div data-automation-id="DELETE_charm"></div>
+              <p data-automation-id="promptOption" data-automation-label="Apache Airflow">Apache Airflow</p>
+            </div>
+          </li>
+        </ul>
+        <input type="text" aria-label="Skills" role="combobox" />
+      </div>
+      <div data-automation-id="activeListContainer" role="listbox" aria-activedescendant="mi-1">
+        <div id="mi-1" role="option" data-automation-id="menuItem" aria-label="Database Development not checked">
+          <div data-automation-id="promptLeafNode" data-automation-checked="Not Checked">
+            <div data-automation-id="promptOption" data-automation-label="Database Development">Database Development</div>
+          </div>
+        </div>
+      </div>`;
+    const input = document.querySelector("input")!;
+    const state = readDropdownState(input);
+    expect(state?.kind).toBe("options");
+    expect(state?.options.map(optionText)).toEqual(["Database Development"]);
+  });
+
   it("skips disabled and hidden options", () => {
     const input = makeInput({ "aria-controls": "lb" });
     const lb = makeListbox("lb", ["Visible"]);

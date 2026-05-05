@@ -33,6 +33,17 @@ function resolveAriaTarget(input: Element): Element | null {
 const OPTION_SELECTOR =
   "[role='option'], [data-automation-id='menuItem'], [data-automation-id='promptOption'], [data-automation-id='promptLeafNode']";
 
+/**
+ * Workday renders the ALREADY-SELECTED pills strip as a role=listbox
+ * (data-automation-id="selectedItemList") whose pills are role=option
+ * menuItems — markup that is nearly identical to a suggestions dropdown.
+ * Anything in or around it must never be treated as a dropdown or option.
+ */
+function isSelectedValuesDisplay(el: Element): boolean {
+  if (el.closest("[data-automation-id='selectedItemList'], [data-automation-id='selectedItem']")) return true;
+  return el.querySelector("[data-automation-id='selectedItem'], [data-automation-id='DELETE_charm']") !== null;
+}
+
 /** Keep only elements whose ancestors are not themselves in the set. */
 function outermost(els: HTMLElement[]): HTMLElement[] {
   return els.filter((el) => !els.some((other) => other !== el && other.contains(el)));
@@ -44,6 +55,7 @@ function visibleOptions(container: Element): HTMLElement[] {
     if (!(el instanceof HTMLElement)) continue;
     if (!isVisible(el)) continue;
     if (el.getAttribute("aria-disabled") === "true") continue;
+    if (isSelectedValuesDisplay(el)) continue; // pills are not suggestions
     opts.push(el);
   }
   // A Workday row matches several selectors at once (menuItem →
@@ -105,7 +117,8 @@ export function optionText(option: Element): string {
 export function readDropdownState(input: HTMLElement): DropdownState | null {
   const doc = input.ownerDocument;
 
-  const linked = resolveAriaTarget(input);
+  const linkedTarget = resolveAriaTarget(input);
+  const linked = linkedTarget && !isSelectedValuesDisplay(linkedTarget) ? linkedTarget : null;
   if (linked) {
     const options = visibleOptions(linked);
     if (options.length > 0) return { kind: "options", listbox: linked, options };
@@ -116,7 +129,10 @@ export function readDropdownState(input: HTMLElement): DropdownState | null {
   // Fallback: an unambiguous visible listbox anywhere in the document —
   // Workday portals the suggestion popup under <body>, outside the field.
   const candidates = queryAllDeep("[role='listbox']", doc).filter(
-    (el) => isVisible(el) && (visibleOptions(el).length > 0 || NO_MATCH_TEXT.test(el.textContent ?? "")),
+    (el) =>
+      isVisible(el) &&
+      !isSelectedValuesDisplay(el) &&
+      (visibleOptions(el).length > 0 || NO_MATCH_TEXT.test(el.textContent ?? "")),
   );
   if (candidates.length === 1) {
     const container = candidates[0]!;
