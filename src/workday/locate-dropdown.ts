@@ -56,18 +56,34 @@ function visibleOptions(container: Element): HTMLElement[] {
  * is a checkbox multiselect: clicking a selected row would REMOVE the skill,
  * so this must be checked before clicking, and it doubles as selection
  * confirmation after clicking.
+ *
+ * CAUTION: in these menus aria-selected marks the keyboard-HIGHLIGHTED row
+ * (Workday highlights the first row on open), not the checked one. When any
+ * checkbox signal is present, only checkbox signals decide; aria-selected is
+ * consulted only for menus without checkboxes.
  */
 export function isOptionSelected(option: Element): boolean {
-  if (option.getAttribute("aria-selected") === "true") return true;
-  if (option.getAttribute("data-automation-selected") === "true") return true;
+  const signals: boolean[] = [];
 
   const ariaLabel = option.getAttribute("aria-label") ?? "";
-  if (/\bchecked\b/i.test(ariaLabel)) return true;
+  if (/\bnot checked\b/i.test(ariaLabel)) signals.push(false);
+  else if (/\bchecked\b/i.test(ariaLabel)) signals.push(true);
 
-  for (const box of option.querySelectorAll("input[type='checkbox']")) {
-    if (box instanceof HTMLInputElement && box.checked) return true;
+  const marked = [option, ...option.querySelectorAll("[data-automation-checked], [data-automationcheckboxchecked], input[type='checkbox']")];
+  for (const el of marked) {
+    const checkedId = el.getAttribute("data-automation-checked");
+    if (checkedId !== null) signals.push(checkedId.trim().toLowerCase() === "checked");
+    const checkedBox = el.getAttribute("data-automationcheckboxchecked");
+    if (checkedBox !== null) signals.push(checkedBox.trim().toLowerCase() === "true");
+    if (el instanceof HTMLInputElement && el.type === "checkbox") {
+      signals.push(el.checked || el.getAttribute("aria-checked") === "true");
+    }
   }
-  return false;
+
+  if (signals.length > 0) return signals.some(Boolean);
+
+  // No checkbox anywhere: plain multiselect menus mark selection via ARIA.
+  return option.getAttribute("aria-selected") === "true" || option.getAttribute("data-automation-selected") === "true";
 }
 
 /** Display text of one option, using only allowed display normalization. */
