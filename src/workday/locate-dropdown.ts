@@ -187,3 +187,20 @@ export function readDropdownState(input: HTMLElement): DropdownState | null {
 
   return null;
 }
+
+/**
+ * The option currently highlighted by keyboard navigation, resolved through
+ * the input's aria-activedescendant. Null when nothing is highlighted or the
+ * pattern isn't in use.
+ */
+export function activeOption(input: HTMLElement, listbox: Element | null = null): HTMLElement | null {
+  // Workday puts aria-activedescendant on the dropdown container
+  // (activeListContainer), not the input — check both.
+  for (const src of [input, listbox]) {
+    const id = src?.getAttribute("aria-activedescendant");
+    if (!id) continue;
+    const el = input.ownerDocument.getElementById(id);
+    if (el instanceof HTMLElement && isVisible(el)) return el;
+  }
+  return null;
+}
