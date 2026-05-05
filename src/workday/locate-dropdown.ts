@@ -126,16 +126,27 @@ export function readDropdownState(input: HTMLElement): DropdownState | null {
     return null; // linked popup exists but has not produced content yet
   }
 
-  // Fallback: an unambiguous visible listbox anywhere in the document —
-  // Workday portals the suggestion popup under <body>, outside the field.
-  const candidates = queryAllDeep("[role='listbox']", doc).filter(
+  // Fallback: an unambiguous visible suggestion container anywhere in the
+  // document (Workday portals the popup under <body>), including open shadow
+  // roots. Real Workday popups do not always use role=listbox: cover ARIA
+  // listboxes, Workday's activeListContainer, and any popup holding
+  // promptOption items.
+  const candidates = queryAllDeep(
+    "[role='listbox'], [data-automation-id='activeListContainer'], [data-automation-id='popUpContainer'], [data-automation-id='menuContainer']",
+    doc,
+  ).filter(
     (el) =>
       isVisible(el) &&
       !isSelectedValuesDisplay(el) &&
       (visibleOptions(el).length > 0 || NO_MATCH_TEXT.test(el.textContent ?? "")),
   );
-  if (candidates.length === 1) {
-    const container = candidates[0]!;
+
+  // Collapse nested candidates (e.g. a listbox inside a popup container) to
+  // their outermost container so one popup counts once.
+  const containers = candidates.filter((el) => !candidates.some((other) => other !== el && other.contains(el)));
+
+  if (containers.length === 1) {
+    const container = containers[0]!;
     const options = visibleOptions(container);
     if (options.length > 0) return { kind: "options", listbox: container, options };
     return { kind: "empty", listbox: container, options: [] };
@@ -143,5 +154,36 @@ export function readDropdownState(input: HTMLElement): DropdownState | null {
 
   // With multiple recognizable containers visible, the situation is
   // ambiguous — never guess between unrelated popups.
+  if (containers.length > 1) return null;
+
+  // Last resort: visible option rows exist but their container has no
+  // recognizable role/automation id (Workday's virtualized skills menu).
+  // Group them under their nearest common ancestor and treat that as the
+  // popup — options only exist in the document while a popup is open.
+  const looseOptions = outermost(
+    queryAllDeep(OPTION_SELECTOR, doc).filter(
+      (el): el is HTMLElement =>
+        el instanceof HTMLElement &&
+        isVisible(el) &&
+        el !== input &&
+        !el.contains(input) &&
+        el.getAttribute("aria-disabled") !== "true" &&
+        !isSelectedValuesDisplay(el),
+    ),
+  );
+  if (looseOptions.length > 0) {
+    let ancestor: Element | null = looseOptions[0]!.parentElement;
+    while (ancestor && !looseOptions.every((o) => ancestor!.contains(o))) ancestor = ancestor.parentElement;
+    if (ancestor) return { kind: "options", listbox: ancestor, options: looseOptions };
+  }
+
+  // Some tenants render an explicit "no matches" panel without a listbox role.
+  const emptyPanels = queryAllDeep("[data-automation-id]", doc).filter(
+    (el) => isVisible(el) && NO_MATCH_TEXT.test(el.textContent ?? "") && el.textContent!.length < 80,
+  );
+  if (emptyPanels.length > 0 && doc.activeElement === input) {
+    return { kind: "empty", listbox: null, options: [] };
+  }
+
   return null;
 }
