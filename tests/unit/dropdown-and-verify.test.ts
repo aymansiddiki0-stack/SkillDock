@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetDom } from "../fixtures/load";
+import { resetDom, loadFixture } from "../fixtures/load";
 import { optionText, readDropdownState } from "../../src/workday/locate-dropdown";
+import { getSelectedSkills, isSkillSelected } from "../../src/workday/verify-selection";
 
 beforeEach(resetDom);
 
@@ -112,5 +113,25 @@ describe("readDropdownState", () => {
     lb.appendChild(li);
     const state = readDropdownState(input);
     expect(state?.options.map(optionText)).toEqual(["Amazon Web Services (AWS)"]);
+  });
+});
+
+describe("selected-skill detection", () => {
+  it("reads chips including aria-label-only remove buttons, scoped to the field container", () => {
+    loadFixture("existing-skills.html");
+    const input = document.querySelector<HTMLInputElement>("[data-automation-id='searchBox']")!;
+    expect(getSelectedSkills(input)).toEqual(["Python", "Amazon Web Services (AWS)", "C++"]);
+  });
+
+  it("uses exact matching for presence checks", () => {
+    loadFixture("existing-skills.html");
+    const input = document.querySelector<HTMLInputElement>("[data-automation-id='searchBox']")!;
+    expect(isSkillSelected(input, "Python")).toBe(true);
+    expect(isSkillSelected(input, "python")).toBe(false);
+    expect(isSkillSelected(input, "C")).toBe(false);
+    expect(isSkillSelected(input, "AWS")).toBe(false);
+    // Text in the surrounding job description must not count as selected.
+    expect(isSkillSelected(input, "Java")).toBe(false);
+    expect(isSkillSelected(input, "JavaScript")).toBe(false);
   });
 });
