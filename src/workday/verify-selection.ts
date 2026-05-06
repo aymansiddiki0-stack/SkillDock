@@ -59,3 +59,21 @@ export function getSelectedSkills(field: HTMLElement): string[] {
 export function isSkillSelected(field: HTMLElement, skill: string): boolean {
   return getSelectedSkills(field).some((v) => isExactMatch(v, skill));
 }
+
+export interface SelectionSnapshot {
+  values: string[];
+}
+
+export function snapshotSelection(field: HTMLElement): SelectionSnapshot {
+  return { values: getSelectedSkills(field) };
+}
+
+/**
+ * True when, compared to `before`, the exact `skill` is now part of the
+ * selected set. A click alone never counts as proof.
+ */
+export function selectionConfirmed(field: HTMLElement, before: SelectionSnapshot, skill: string): boolean {
+  const beforeCount = before.values.filter((v) => isExactMatch(v, skill)).length;
+  const afterCount = getSelectedSkills(field).filter((v) => isExactMatch(v, skill)).length;
+  return afterCount > beforeCount;
+}
