@@ -87,4 +87,27 @@ describe("fill engine (integration)", () => {
     expect(statusOf(results, "Python")).toBe("selection-not-confirmed");
     expect(harness.selected()).toEqual([]);
   });
+
+  it("cancels mid-run: remaining skills report cancelled, nothing else is added", async () => {
+    harness = mountHarness({ catalog: ["Python", "C++", "Power BI"], suggestDelayMs: 60 });
+    const controller = new AbortController();
+    const promise = run(["Python", "C++", "Power BI"], harness, {}, controller);
+    setTimeout(() => controller.abort(), 120);
+    const results = await promise;
+    expect(results).toHaveLength(3);
+    expect(results.some((r) => r.status === "cancelled")).toBe(true);
+    const added = results.filter((r) => r.status === "added").map((r) => r.skill);
+    expect(harness.selected()).toEqual(added);
+  });
+
+  it("emits monotonic progress updates covering every skill", async () => {
+    harness = mountHarness({ catalog: ["Python", "C++"] });
+    const updates: RunProgress[] = [];
+    await run(["Python", "C++"], harness, {}, new AbortController(), (p) => updates.push(p));
+    expect(updates.length).toBeGreaterThanOrEqual(4);
+    expect(updates.every((u) => u.total === 2)).toBe(true);
+    expect(updates.at(-1)?.completed).toBe(2);
+    const completeds = updates.map((u) => u.completed);
+    expect([...completeds].sort((a, b) => a - b)).toEqual(completeds);
+  });
 });

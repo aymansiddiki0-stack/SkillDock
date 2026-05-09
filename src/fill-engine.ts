@@ -1,4 +1,4 @@
-import { TimeoutError, waitFor, delay } from "./wait";
+import { CancelledError, TimeoutError, waitFor, delay } from "./wait";
 import { isExactMatch } from "./normalization";
 import { clearQuery, clickOption, dismissDropdown, pressEnter, typeQuery } from "./workday/interact-with-combobox";
 import { optionText, readDropdownState } from "./workday/locate-dropdown";
@@ -37,14 +37,28 @@ export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]>
     onProgress({ total: skills.length, completed: results.length, current });
 
   for (const skill of skills) {
+    if (signal.aborted) {
+      results.push({ skill, status: "cancelled" });
+      continue;
+    }
     report(skill);
     try {
       results.push(await processSkill(field, skill, timing, signal));
     } catch (err) {
-      results.push({ skill, status: "error", detail: errorMessage(err) });
+      if (err instanceof CancelledError) {
+        results.push({ skill, status: "cancelled" });
+      } else {
+        results.push({ skill, status: "error", detail: errorMessage(err) });
+      }
     }
     report(null);
-    await delay(timing.betweenSkillsMs, signal);
+    if (!signal.aborted) {
+      try {
+        await delay(timing.betweenSkillsMs, signal);
+      } catch {
+        /* cancelled during settle delay — remaining skills report cancelled */
+      }
+    }
   }
   return results;
 }
