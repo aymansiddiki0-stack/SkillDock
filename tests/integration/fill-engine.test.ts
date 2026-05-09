@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mountHarness, type Harness } from "./workday-harness";
 import { runFillEngine } from "../../src/fill-engine";
 import type { RunProgress, SkillResult } from "../../src/types";
+import { locateSkillsField } from "../../src/workday/locate-skills-field";
 
 const FAST = { optionsTimeoutMs: 600, verifyTimeoutMs: 400, betweenSkillsMs: 5 };
 
@@ -109,5 +110,15 @@ describe("fill engine (integration)", () => {
     expect(updates.at(-1)?.completed).toBe(2);
     const completeds = updates.map((u) => u.completed);
     expect([...completeds].sort((a, b) => a - b)).toEqual(completeds);
+  });
+
+  it("reacquires the field after a rerender replaces the input", async () => {
+    harness = mountHarness({ catalog: ["Python", "C++"], rerenderAfterSelections: 1 });
+    const originalInput = harness.input;
+    const results = await run(["Python", "C++"], harness);
+    expect(results.map((r) => r.status)).toEqual(["added", "added"]);
+    expect(harness.input).not.toBe(originalInput);
+    // Locator finds the replacement input too.
+    expect(locateSkillsField().kind).toBe("found");
   });
 });

@@ -20,6 +20,8 @@ export interface HarnessOptions {
   chipDelayMs?: number;
   /** Link the listbox via aria-controls instead of relying on portal lookup. */
   ariaLinked?: boolean;
+  /** Replace the input element after this many successful selections. */
+  rerenderAfterSelections?: number;
   /** When true, clicking an option silently does nothing (verification must fail). */
   swallowSelections?: boolean;
 }
@@ -37,6 +39,7 @@ export function mountHarness(opts: HarnessOptions): Harness {
     suggestDelayMs = 30,
     chipDelayMs = 0,
     ariaLinked = false,
+    rerenderAfterSelections,
     swallowSelections = false,
   } = opts;
 
@@ -63,7 +66,8 @@ export function mountHarness(opts: HarnessOptions): Harness {
 
   for (const value of preselected) addChip(value);
 
-  const input = createInput();
+  let selections = 0;
+  let input = createInput();
   container.appendChild(input);
 
   function createInput(): HTMLInputElement {
@@ -127,11 +131,22 @@ export function mountHarness(opts: HarnessOptions): Harness {
     if (swallowSelections) return;
     removeListbox();
     input.value = "";
-    later(() => addChip(value), chipDelayMs);
+    later(() => {
+      addChip(value);
+      selections++;
+      if (rerenderAfterSelections !== undefined && selections === rerenderAfterSelections) {
+        // Simulate a React rerender replacing the input node.
+        const fresh = createInput();
+        input.replaceWith(fresh);
+        input = fresh;
+      }
+    }, chipDelayMs);
   }
 
   return {
-    input,
+    get input() {
+      return input;
+    },
     selected: () =>
       [...chipList.querySelectorAll("[data-automation-id='selectedItem'] span")].map(
         (el) => el.textContent ?? "",
