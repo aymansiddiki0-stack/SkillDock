@@ -188,4 +188,33 @@ describe("fill engine (integration)", () => {
     ]);
     expect(harness.selected()).toEqual(["Apache Airflow", "Database Development", "Python"]);
   });
+
+  it("falls back to keyboard selection when the tenant ignores synthetic clicks", async () => {
+    harness = mountHarness({
+      // "Python Programming" is highlighted before "Python" — the keyboard
+      // path must arrow past it and press Enter only on the exact match.
+      catalog: ["Python Programming", "Python", "C++"],
+      markup: "menu",
+      ignoreClicks: true,
+    });
+    const results = await run(["Python", "C++"], harness, { verifyTimeoutMs: 150 });
+    expect(results).toEqual([
+      { skill: "Python", status: "added" },
+      { skill: "C++", status: "added" },
+    ]);
+    expect(harness.selected()).toEqual(["Python", "C++"]);
+  });
+
+  it("reports selection-not-confirmed when both click and keyboard selection fail", async () => {
+    harness = mountHarness({ catalog: ["C++"], markup: "menu", ignoreClicks: true, swallowSelections: true });
+    const results = await run(["C++"], harness, { verifyTimeoutMs: 120 });
+    expect(results).toEqual([
+      {
+        skill: "C++",
+        status: "selection-not-confirmed",
+        detail: expect.stringContaining("never showed it as selected"),
+      },
+    ]);
+    expect(harness.selected()).toEqual([]);
+  });
 });
