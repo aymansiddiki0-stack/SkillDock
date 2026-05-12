@@ -189,6 +189,44 @@ export function readDropdownState(input: HTMLElement): DropdownState | null {
 }
 
 /**
+ * Diagnostic snapshot of everything that could plausibly be the suggestion
+ * popup, for console logging when detection or selection fails. Markup only —
+ * never applicant data from the rest of the form.
+ */
+export function popupDiagnostics(input: HTMLElement): string[] {
+  const doc = input.ownerDocument;
+  const seen = new Set<Element>();
+  const lines: string[] = [];
+  const note = (label: string, el: Element) => {
+    if (seen.has(el)) return;
+    seen.add(el);
+    const html = (el as HTMLElement).outerHTML ?? "";
+    lines.push(`${label}: ${html.length > 2500 ? html.slice(0, 2500) + "…[truncated]" : html}`);
+  };
+
+  const linked = resolveAriaTarget(input);
+  if (linked) note("aria-linked popup", linked);
+
+  for (const el of queryAllDeep(
+    "[role='listbox'], [data-automation-id='activeListContainer'], [data-automation-id='popUpContainer'], [data-automation-id='menuContainer']",
+    doc,
+  )) {
+    if (isVisible(el)) note("candidate container", el);
+  }
+  for (const el of queryAllDeep("[data-automation-id*='rompt'], [data-automation-id*='option' i]", doc)) {
+    if (isVisible(el)) note("candidate option", el.parentElement ?? el);
+  }
+  // Portal popups usually mount as late children of <body>.
+  const body = doc.body;
+  for (let i = body.children.length - 1; i >= 0 && i >= body.children.length - 3; i--) {
+    const el = body.children[i]!;
+    if (el instanceof HTMLElement && isVisible(el) && !el.contains(input)) note("late body child", el);
+  }
+  if (lines.length === 0) lines.push("no visible popup-like elements found anywhere in the document");
+  return lines;
+}
+
+/**
  * The option currently highlighted by keyboard navigation, resolved through
  * the input's aria-activedescendant. Null when nothing is highlighted or the
  * pattern isn't in use.
