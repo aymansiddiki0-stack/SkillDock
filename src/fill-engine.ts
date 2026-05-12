@@ -2,7 +2,7 @@ import { CancelledError, TimeoutError, waitFor, delay } from "./wait";
 import { isExactMatch } from "./normalization";
 import { locateSkillsField } from "./workday/locate-skills-field";
 import { clearQuery, clickOption, dismissDropdown, pressEnter, typeQuery } from "./workday/interact-with-combobox";
-import { optionText, readDropdownState } from "./workday/locate-dropdown";
+import { isOptionSelected, optionText, readDropdownState } from "./workday/locate-dropdown";
 import { isSkillSelected, selectionConfirmed, snapshotSelection } from "./workday/verify-selection";
 import type { RunProgress, SkillResult } from "./types";
 
@@ -21,6 +21,12 @@ export interface EngineTiming {
   verifyTimeoutMs: number;
   /** Small settle delay between skills. */
   betweenSkillsMs: number;
+  /** Pause after typing, before Enter, so the framework commits the value. */
+  settleAfterTypeMs: number;
+  /** Pause after Enter, before reading the dropdown, so the search can start. */
+  settleAfterEnterMs: number;
+  /** On an empty/"no matches" state, wait this long and re-read once before accepting it. */
+  emptyRecheckMs: number;
 }
 
 const MAX_ATTEMPTS_PER_SKILL = 2;
@@ -29,6 +35,9 @@ const DEFAULT_TIMING: EngineTiming = {
   optionsTimeoutMs: 8000,
   verifyTimeoutMs: 4000,
   betweenSkillsMs: 250,
+  settleAfterTypeMs: 400,
+  settleAfterEnterMs: 800,
+  emptyRecheckMs: 1500,
 };
 
 export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]> {
@@ -103,15 +112,59 @@ async function processSkill(
       continue;
     }
 
+    // Let the framework commit the typed value before searching — pressing
+    // Enter immediately makes Workday search a stale/partial query.
+    await delay(timing.settleAfterTypeMs, signal);
+
+    // Workday CACHES the previous search: typing can re-open the dropdown
+    // showing the LAST query's results before the new search runs. Pressing
+    // Enter while that menu is open can toggle its highlighted row instead
+    // of searching — so close it first and wait until it is actually gone.
+    let stale = readDropdownState(field);
+    if (stale) {
+      dismissDropdown(field);
+      try {
+        await waitFor(() => (readDropdownState(field) === null ? true : null), {
+          description: "the cached dropdown to close",
+          timeoutMs: 1500,
+          signal,
+        });
+        stale = null; // closed cleanly; whatever appears next is fresh
+      } catch (err) {
+        if (!(err instanceof TimeoutError)) throw err;
+        // Menu refuses to close — keep its contents as a staleness
+        // fingerprint so they can't be mistaken for fresh results.
+      }
+    }
+
+    // Workday's Skills search box only opens its suggestion dropdown after
+    // an explicit Enter press — typing alone shows nothing.
     pressEnter(field);
 
+    // Give the search a moment to start so a transient pre-search state
+    // isn't mistaken for the result.
+    await delay(timing.settleAfterEnterMs, signal);
+
+    // Wait for the dropdown tied to this input to produce a usable state:
+    // either it contains the exact match (fine even if it is the cached
+    // list — those rows are live and selectable), or its contents CHANGED
+    // from the pre-Enter snapshot (a genuinely fresh result), or an
+    // explicit empty state that is fresh.
     let state;
     try {
-      state = await waitFor(() => readDropdownState(field), {
-        description: `suggestions for "${skill}"`,
-        timeoutMs: timing.optionsTimeoutMs,
-        signal,
-      });
+      state = await waitFor(
+        () => {
+          const current = readDropdownState(field);
+          if (!current) return null;
+          if (hasExactOption(current, skill)) return current;
+          return sameDropdownState(current, stale) ? null : current;
+        },
+        {
+          description: `fresh suggestions for "${skill}"`,
+          timeoutMs: timing.optionsTimeoutMs,
+          signal,
+        },
+      );
     } catch (err) {
       if (err instanceof TimeoutError) {
         clearQuery(field);
@@ -122,11 +175,28 @@ async function processSkill(
       throw err;
     }
 
-    const match = state.options.find((opt) => isExactMatch(optionText(opt), skill));
-    if (!match) {
+    if (!hasExactOption(state, skill)) {
+      // Fresh but matchless (or fresh empty state): results can still be
+      // streaming in — wait and re-read once before accepting "no match".
+      await delay(timing.emptyRecheckMs, signal);
+      const recheck = readDropdownState(field);
+      if (recheck && hasExactOption(recheck, skill)) {
+        state = recheck;
+      } else {
+        clearQuery(field);
+        dismissDropdown(field);
+        return { skill, status: "no-exact-match" };
+      }
+    }
+
+    const match = state.options.find((opt) => isExactMatch(optionText(opt), skill))!;
+
+    // Checkbox-multiselect guard: a checked row means the skill is already
+    // selected — clicking it would REMOVE the skill.
+    if (isOptionSelected(match)) {
       clearQuery(field);
       dismissDropdown(field);
-      return { skill, status: "no-exact-match" };
+      return { skill, status: "already-present" };
     }
 
     const before = snapshotSelection(field);
@@ -151,6 +221,22 @@ async function processSkill(
   }
 
   return lastFailure ?? { skill, status: "error", detail: "Exhausted retries" };
+}
+
+function hasExactOption(state: { options: HTMLElement[] }, skill: string): boolean {
+  return state.options.some((opt) => isExactMatch(optionText(opt), skill));
+}
+
+/** Same dropdown contents (kind + option texts) as the stale snapshot. */
+function sameDropdownState(
+  a: { kind: string; options: HTMLElement[] },
+  b: { kind: string; options: HTMLElement[] } | null,
+): boolean {
+  if (b === null) return false;
+  if (a.kind !== b.kind) return false;
+  const at = a.options.map(optionText);
+  const bt = b.options.map(optionText);
+  return at.length === bt.length && at.every((t, i) => t === bt[i]);
 }
 
 /**

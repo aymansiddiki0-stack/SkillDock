@@ -4,7 +4,7 @@ import { runFillEngine } from "../../src/fill-engine";
 import type { RunProgress, SkillResult } from "../../src/types";
 import { locateSkillsField } from "../../src/workday/locate-skills-field";
 
-const FAST = { optionsTimeoutMs: 600, verifyTimeoutMs: 400, betweenSkillsMs: 5 };
+const FAST = { optionsTimeoutMs: 600, verifyTimeoutMs: 400, betweenSkillsMs: 5, settleAfterTypeMs: 5, settleAfterEnterMs: 5, emptyRecheckMs: 40 };
 
 let harness: Harness | null = null;
 afterEach(() => {
