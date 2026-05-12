@@ -1,8 +1,8 @@
 import { CancelledError, TimeoutError, waitFor, delay } from "./wait";
 import { isExactMatch } from "./normalization";
 import { locateSkillsField } from "./workday/locate-skills-field";
-import { clearQuery, clickOption, dismissDropdown, pressEnter, typeQuery } from "./workday/interact-with-combobox";
-import { isOptionSelected, optionText, readDropdownState } from "./workday/locate-dropdown";
+import { clearQuery, clickOption, dismissDropdown, pressEnter, pressKey, typeQuery } from "./workday/interact-with-combobox";
+import { activeOption, isOptionSelected, optionText, readDropdownState } from "./workday/locate-dropdown";
 import { isSkillSelected, selectionConfirmed, snapshotSelection } from "./workday/verify-selection";
 import type { RunProgress, SkillResult } from "./types";
 
@@ -200,8 +200,27 @@ async function processSkill(
     }
 
     const before = snapshotSelection(field);
+    let selectedVia = "click";
     clickOption(match);
-    const confirmed = await confirmSelection(field, before, skill, timing.verifyTimeoutMs, signal);
+    let confirmed = await confirmSelection(field, before, skill, match, timing.verifyTimeoutMs, signal);
+
+    if (!confirmed) {
+      // Some tenants ignore page-dispatched clicks entirely. Keyboard
+      // interaction is known to work on those (typing + Enter already ran
+      // the search), so fall back to it: ArrowDown until the highlighted
+      // row (aria-activedescendant) is the exact match, then press Enter.
+      const highlighted = await highlightByKeyboard(field, skill, state.listbox, signal);
+      if (highlighted) {
+        selectedVia = "keyboard";
+        pressKey(field, "Enter");
+        confirmed = await confirmSelection(field, before, skill, highlighted, timing.verifyTimeoutMs, signal);
+        if (!confirmed) {
+          // A few checkbox menus toggle on Space instead of Enter.
+          pressKey(field, " ", "Space");
+          confirmed = await confirmSelection(field, before, skill, highlighted, timing.verifyTimeoutMs, signal);
+        }
+      }
+    }
 
     if (confirmed) {
       if (field.isConnected) {
@@ -240,26 +259,68 @@ function sameDropdownState(
 }
 
 /**
- * Wait until the skill shows as selected. False on timeout.
+ * Wait until the skill shows as selected — a chip appears, or the given
+ * option row flips to its checked state. False on timeout.
  */
 async function confirmSelection(
   field: HTMLInputElement,
   before: ReturnType<typeof snapshotSelection>,
   skill: string,
+  option: HTMLElement,
   timeoutMs: number,
   signal: AbortSignal,
 ): Promise<boolean> {
   try {
-    await waitFor(() => (selectionConfirmed(field, before, skill) ? true : null), {
-      description: `confirmation that "${skill}" was added`,
-      timeoutMs,
-      signal,
-    });
+    await waitFor(
+      () =>
+        selectionConfirmed(field, before, skill) || (option.isConnected && isOptionSelected(option))
+          ? true
+          : null,
+      { description: `confirmation that "${skill}" was added`, timeoutMs, signal },
+    );
     return true;
   } catch (err) {
     if (err instanceof TimeoutError) return false;
     throw err;
   }
+}
+
+const MAX_ARROW_STEPS = 40;
+
+/**
+ * Step through the open menu with ArrowDown until the row referenced by the
+ * input's aria-activedescendant is an exact match for the skill. Returns the
+ * highlighted row, or null when the menu doesn't expose keyboard highlight
+ * tracking or a full pass found no exact match. Never presses Enter on a row
+ * it hasn't verified.
+ */
+async function highlightByKeyboard(
+  field: HTMLInputElement,
+  skill: string,
+  listbox: Element | null,
+  signal: AbortSignal,
+): Promise<HTMLElement | null> {
+  const seen = new Set<string>();
+  for (let step = 0; step < MAX_ARROW_STEPS; step++) {
+    const active = activeOption(field, listbox);
+    if (active) {
+      if (isExactMatch(optionText(active), skill)) return active;
+      const id = active.id;
+      if (id) {
+        if (seen.has(id)) return null; // full cycle, no exact match
+        seen.add(id);
+      }
+    } else if (step > 2) {
+      return null; // arrowing produces no trackable highlight
+    }
+    pressKey(field, "ArrowDown");
+    try {
+      await delay(80, signal);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 function errorMessage(err: unknown): string {
