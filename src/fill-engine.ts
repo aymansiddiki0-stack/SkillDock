@@ -2,7 +2,7 @@ import { CancelledError, TimeoutError, waitFor, delay } from "./wait";
 import { isExactMatch } from "./normalization";
 import { locateSkillsField } from "./workday/locate-skills-field";
 import { clearQuery, clickOption, dismissDropdown, pressEnter, pressKey, typeQuery } from "./workday/interact-with-combobox";
-import { activeOption, isOptionSelected, optionText, readDropdownState } from "./workday/locate-dropdown";
+import { activeOption, isOptionSelected, optionText, popupDiagnostics, readDropdownState } from "./workday/locate-dropdown";
 import { isSkillSelected, selectionConfirmed, snapshotSelection } from "./workday/verify-selection";
 import type { RunProgress, SkillResult } from "./types";
 
@@ -11,7 +11,9 @@ export interface EngineOptions {
   skills: string[];
   signal: AbortSignal;
   onProgress: (progress: RunProgress) => void;
+  /** Overridable timeouts (tests use short values). */
   timing?: Partial<EngineTiming>;
+  debug?: boolean;
 }
 
 export interface EngineTiming {
@@ -43,6 +45,9 @@ const DEFAULT_TIMING: EngineTiming = {
 export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]> {
   const timing: EngineTiming = { ...DEFAULT_TIMING, ...opts.timing };
   const { skills, signal, onProgress } = opts;
+  const log = opts.debug
+    ? (...args: unknown[]) => console.warn("[SkillDock]", ...args)
+    : () => undefined;
 
   let field = opts.field;
   const results: SkillResult[] = [];
@@ -58,12 +63,15 @@ export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]>
     report(skill);
     try {
       field = await reacquireField(field, signal);
-      results.push(await processSkill(field, skill, timing, signal));
+      const result = await processSkill(field, skill, timing, signal, log);
+      console.warn(`[SkillDock] "${result.skill}" → ${result.status}${result.detail ? ` (${result.detail})` : ""}`);
+      results.push(result);
     } catch (err) {
       if (err instanceof CancelledError) {
         results.push({ skill, status: "cancelled" });
       } else {
         results.push({ skill, status: "error", detail: errorMessage(err) });
+        log("error for", skill, err);
       }
     }
     report(null);
@@ -96,6 +104,7 @@ async function processSkill(
   skill: string,
   timing: EngineTiming,
   signal: AbortSignal,
+  log: (...args: unknown[]) => void,
 ): Promise<SkillResult> {
   if (isSkillSelected(field, skill)) {
     return { skill, status: "already-present" };
@@ -134,6 +143,7 @@ async function processSkill(
         if (!(err instanceof TimeoutError)) throw err;
         // Menu refuses to close — keep its contents as a staleness
         // fingerprint so they can't be mistaken for fresh results.
+        log("cached dropdown would not close; tracking it as stale");
       }
     }
 
@@ -167,6 +177,7 @@ async function processSkill(
       );
     } catch (err) {
       if (err instanceof TimeoutError) {
+        diagnose(field, `no fresh dropdown results for "${skill}" before timeout`);
         clearQuery(field);
         dismissDropdown(field);
         lastFailure = { skill, status: "timed-out", detail: err.message };
@@ -183,6 +194,11 @@ async function processSkill(
       if (recheck && hasExactOption(recheck, skill)) {
         state = recheck;
       } else {
+        const texts = (recheck ?? state).options.map(optionText);
+        console.warn(
+          `[SkillDock] no exact match for "${skill}". Workday offered:`,
+          texts.length > 0 ? texts : "(no options — empty result)",
+        );
         clearQuery(field);
         dismissDropdown(field);
         return { skill, status: "no-exact-match" };
@@ -190,6 +206,7 @@ async function processSkill(
     }
 
     const match = state.options.find((opt) => isExactMatch(optionText(opt), skill))!;
+    log("options", state.options.map(optionText), "→ match:", optionText(match));
 
     // Checkbox-multiselect guard: a checked row means the skill is already
     // selected — clicking it would REMOVE the skill.
@@ -209,7 +226,7 @@ async function processSkill(
       // interaction is known to work on those (typing + Enter already ran
       // the search), so fall back to it: ArrowDown until the highlighted
       // row (aria-activedescendant) is the exact match, then press Enter.
-      const highlighted = await highlightByKeyboard(field, skill, state.listbox, signal);
+      const highlighted = await highlightByKeyboard(field, skill, state.listbox, signal, log);
       if (highlighted) {
         selectedVia = "keyboard";
         pressKey(field, "Enter");
@@ -223,6 +240,7 @@ async function processSkill(
     }
 
     if (confirmed) {
+      log("selected", skill, "via", selectedVia);
       if (field.isConnected) {
         clearQuery(field);
         dismissDropdown(field);
@@ -236,6 +254,7 @@ async function processSkill(
     if (isSkillSelected(field, skill)) return { skill, status: "added" };
     clearQuery(field);
     dismissDropdown(field);
+    diagnose(field, `selected exact match for "${skill}" (via ${selectedVia}) but Workday never showed it as selected`);
     lastFailure = { skill, status: "selection-not-confirmed", detail: "Selected an exact match but Workday never showed it as selected" };
   }
 
@@ -299,6 +318,7 @@ async function highlightByKeyboard(
   skill: string,
   listbox: Element | null,
   signal: AbortSignal,
+  log: (...args: unknown[]) => void,
 ): Promise<HTMLElement | null> {
   const seen = new Set<string>();
   for (let step = 0; step < MAX_ARROW_STEPS; step++) {
@@ -307,10 +327,14 @@ async function highlightByKeyboard(
       if (isExactMatch(optionText(active), skill)) return active;
       const id = active.id;
       if (id) {
-        if (seen.has(id)) return null; // full cycle, no exact match
+        if (seen.has(id)) {
+          log("keyboard highlight wrapped around without an exact match for", skill);
+          return null; // full cycle, no exact match
+        }
         seen.add(id);
       }
     } else if (step > 2) {
+      log("menu does not expose aria-activedescendant; keyboard fallback unavailable");
       return null; // arrowing produces no trackable highlight
     }
     pressKey(field, "ArrowDown");
@@ -321,6 +345,19 @@ async function highlightByKeyboard(
     }
   }
   return null;
+}
+
+/**
+ * Log a compact markup snapshot of popup candidates to the page console so
+ * unrecognized tenant markup can be reported and supported. Markup only.
+ */
+function diagnose(field: HTMLInputElement, reason: string): void {
+  try {
+    console.warn(`[SkillDock diagnostic] ${reason}. Copy everything below and share it to get this tenant supported:`);
+    for (const line of popupDiagnostics(field)) console.warn("[SkillDock diagnostic]", line);
+  } catch {
+    /* diagnostics must never break the run */
+  }
 }
 
 function errorMessage(err: unknown): string {
