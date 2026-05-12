@@ -105,17 +105,23 @@ export function dismissDropdown(input: HTMLInputElement): void {
 
 /** Click an option the way a pointer interaction would. */
 export function clickOption(option: HTMLElement): void {
-  option.scrollIntoView({ block: "nearest" });
-  const rect = option.getBoundingClientRect();
+  // Workday's row handler lives on the promptLeafNode widget inside the
+  // role=option wrapper — events must originate at (or inside) it.
+  const inner =
+    option.querySelector("[data-automation-id='promptLeafNode']") ??
+    option.querySelector("[data-automation-id='promptOption']");
+  const target = inner instanceof HTMLElement ? inner : option;
+  target.scrollIntoView({ block: "nearest" });
+  const rect = target.getBoundingClientRect();
   const coords = {
     clientX: rect.left + rect.width / 2,
     clientY: rect.top + rect.height / 2,
     button: 0,
     bubbles: true,
   } as const;
-  fire(option, new PointerEvent("pointerdown", { ...coords, pointerId: 1, isPrimary: true }));
-  fire(option, new MouseEvent("mousedown", { ...coords, cancelable: true }));
-  fire(option, new PointerEvent("pointerup", { ...coords, pointerId: 1, isPrimary: true }));
-  fire(option, new MouseEvent("mouseup", { ...coords }));
-  fire(option, new MouseEvent("click", { ...coords, cancelable: true }));
+  fire(target, new PointerEvent("pointerdown", { ...coords, pointerId: 1, isPrimary: true }));
+  fire(target, new MouseEvent("mousedown", { ...coords, cancelable: true }));
+  fire(target, new PointerEvent("pointerup", { ...coords, pointerId: 1, isPrimary: true }));
+  fire(target, new MouseEvent("mouseup", { ...coords }));
+  fire(target, new MouseEvent("click", { ...coords, cancelable: true }));
 }
