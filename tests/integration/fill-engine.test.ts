@@ -121,4 +121,71 @@ describe("fill engine (integration)", () => {
     // Locator finds the replacement input too.
     expect(locateSkillsField().kind).toBe("found");
   });
+
+  it("selects exact matches from a Workday-style promptOption popup (no ARIA roles)", async () => {
+    harness = mountHarness({ catalog: ["Python", "Python Programming", "C++"], markup: "prompt" });
+    const results = await run(["Python", "C++", "Rust"], harness);
+    expect(results).toEqual([
+      { skill: "Python", status: "added" },
+      { skill: "C++", status: "added" },
+      { skill: "Rust", status: "no-exact-match" },
+    ]);
+    expect(harness.selected()).toEqual(["Python", "C++"]);
+  });
+
+  it("selects from Workday's real checkbox menu markup (menuItem/promptLeafNode, no chips, unmarked container)", async () => {
+    harness = mountHarness({ catalog: ["Software Integration", "Software Development", "C++"], markup: "menu" });
+    const results = await run(["Software Integration", "C++", "Rust Programming Language"], harness, {
+      optionsTimeoutMs: 300,
+    });
+    expect(results).toEqual([
+      { skill: "Software Integration", status: "added" },
+      { skill: "C++", status: "added" },
+      // Unmarked containers cannot signal "no matches"; unmatched skills time out.
+      { skill: "Rust Programming Language", status: "timed-out", detail: expect.stringContaining("suggestions") },
+    ]);
+    expect(harness.selected()).toEqual(["Software Integration", "C++"]);
+  });
+
+  it("never toggles OFF an already-checked skill in the checkbox menu", async () => {
+    harness = mountHarness({
+      catalog: ["Software Integration", "C++"],
+      preselected: ["Software Integration"],
+      markup: "menu",
+    });
+    const results = await run(["Software Integration", "C++"], harness);
+    expect(results).toEqual([
+      { skill: "Software Integration", status: "already-present" },
+      { skill: "C++", status: "added" },
+    ]);
+    expect(harness.selected()).toEqual(["Software Integration", "C++"]);
+  });
+
+  it("never mistakes the highlighted (aria-selected) first row for an already-checked skill", async () => {
+    // The exact match sits first — highlighted with aria-selected="true" the
+    // moment the menu opens, but NOT checked. It must be ADDED, not skipped
+    // as already-present.
+    harness = mountHarness({ catalog: ["Python", "Python Programming"], markup: "menu" });
+    const results = await run(["Python"], harness);
+    expect(results).toEqual([{ skill: "Python", status: "added" }]);
+    expect(harness.selected()).toEqual(["Python"]);
+  });
+
+  it("is not fooled by Workday's cached dropdown re-opening with the PREVIOUS query's results", async () => {
+    // After adding skill 1, typing skill 2 instantly re-opens the dropdown
+    // with skill 1's cached results. The engine must wait for the fresh
+    // results instead of concluding "no exact match" from the stale list.
+    harness = mountHarness({
+      catalog: ["Apache Airflow", "Database Development", "Python"],
+      markup: "menu",
+      suggestDelayMs: 120,
+    });
+    const results = await run(["Apache Airflow", "Database Development", "Python"], harness);
+    expect(results).toEqual([
+      { skill: "Apache Airflow", status: "added" },
+      { skill: "Database Development", status: "added" },
+      { skill: "Python", status: "added" },
+    ]);
+    expect(harness.selected()).toEqual(["Apache Airflow", "Database Development", "Python"]);
+  });
 });
