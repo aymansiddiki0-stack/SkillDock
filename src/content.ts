@@ -1,9 +1,18 @@
 import { runFillEngine } from "./fill-engine";
 import { locateSkillsField } from "./workday/locate-skills-field";
 import { saveLastReport } from "./storage";
-import type { PopupMessage, RunReport, RunStatus, StartResponse, StatusResponse } from "./types";
+import type { PickFieldResponse, PopupMessage, RunReport, RunStatus, StartResponse, StatusResponse } from "./types";
 
-init();
+declare global {
+  interface Window {
+    __skilldockLoaded?: boolean;
+  }
+}
+
+if (!window.__skilldockLoaded) {
+  window.__skilldockLoaded = true;
+  init();
+}
 
 function init(): void {
   let status: RunStatus = { phase: "idle" };
