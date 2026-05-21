@@ -1,0 +1,129 @@
+/* SkillDock popup — system fonts only, no remote assets, no animation. */
+
+:root {
+  --bg: #ffffff;
+  --text: #1c1917;
+  --muted: #57534e;
+  --border: #d6d3d1;
+  --primary: #1d4ed8;
+  --primary-text: #ffffff;
+  --danger: #b91c1c;
+  --ok: #166534;
+  --warn: #92400e;
+  --focus: #1d4ed8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 380px;
+  margin: 0;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tagline {
+  margin: 4px 0 12px;
+  color: var(--muted);
+}
+
+section { margin-bottom: 14px; }
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+label { font-weight: 600; }
+
+.count { color: var(--muted); }
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: 12px/1.5 ui-monospace, "SF Mono", Consolas, monospace;
+  color: var(--text);
+}
+
+button {
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #f5f5f4;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-text);
+  flex: 1;
+}
+
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  flex: 1;
+}
+
+button:disabled { opacity: 0.55; cursor: default; }
+
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.note { color: var(--ok); }
+.progress { margin: 8px 0 0; font-weight: 600; }
+.message { margin: 8px 0 0; color: var(--warn); }
+.message.error { color: var(--danger); }
+
+#results h2 { font-size: 13px; margin: 0 0 6px; }
+
+.result-group { margin-bottom: 8px; }
+
+.result-group h3 {
+  margin: 0 0 2px;
+  font-size: 12px;
+}
+
+.result-group.added h3 { color: var(--ok); }
+.result-group.already-present h3 { color: var(--muted); }
+.result-group.no-exact-match h3 { color: var(--warn); }
+.result-group.failed h3 { color: var(--danger); }
+
+.result-group ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.result-group li { margin: 1px 0; }
+
+.result-detail { color: var(--muted); }
+
+footer .fineprint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}

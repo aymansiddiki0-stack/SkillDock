@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SkillDock</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>SkillDock</h1>
+    <p class="tagline">Fills the Skills section of a Workday application — adding a skill only when Workday offers an exact match.</p>
+  </header>
+
+  <main>
+    <section aria-labelledby="skills-heading">
+      <div class="row">
+        <label id="skills-heading" for="skills-input">Your skills (one per line)</label>
+        <span id="skill-count" class="count" aria-live="polite">0 saved</span>
+      </div>
+      <textarea id="skills-input" rows="8" spellcheck="false"
+        placeholder="Python&#10;C++&#10;Amazon Web Services (AWS)"></textarea>
+      <div class="row">
+        <button id="save-btn" type="button" class="secondary">Save skills</button>
+        <span id="save-note" class="note" role="status"></span>
+      </div>
+    </section>
+
+    <section aria-label="Fill controls">
+      <div class="row">
+        <button id="fill-btn" type="button" class="primary">Fill skills</button>
+        <button id="stop-btn" type="button" class="danger" hidden>Stop</button>
+      </div>
+      <p id="progress" class="progress" role="status" aria-live="polite" hidden></p>
+      <p id="message" class="message" role="status" aria-live="polite" hidden></p>
+      <button id="pick-btn" type="button" class="secondary" hidden>Pick field manually</button>
+    </section>
+
+    <section id="results" aria-label="Results" hidden>
+      <h2>Results</h2>
+      <div id="result-groups"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p class="fineprint">Runs entirely in your browser. No data leaves it. Not affiliated with Workday, Inc.</p>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
