@@ -1,5 +1,11 @@
 import { delay } from "../wait";
 
+export interface TypeQueryTiming {
+  typeCommitCheckMs: number;
+  typeFallbackCharMs: number;
+  typeFallbackSettleMs: number;
+}
+
 function nativeValueSetter(input: HTMLInputElement): (value: string) => void {
   const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
   const set = desc?.set;
@@ -46,14 +52,19 @@ export function clearQuery(input: HTMLInputElement): void {
  * Falls back to character-by-character entry for frameworks that reset
  * wholesale value assignment.
  */
-export async function typeQuery(input: HTMLInputElement, text: string, signal?: AbortSignal): Promise<boolean> {
+export async function typeQuery(
+  input: HTMLInputElement,
+  text: string,
+  timing: TypeQueryTiming,
+  signal?: AbortSignal,
+): Promise<boolean> {
   focusField(input);
   clearQuery(input);
 
   const setValue = nativeValueSetter(input);
   setValue(text);
   inputEvents(input, text, "insertText");
-  await delay(60, signal);
+  await delay(timing.typeCommitCheckMs, signal);
   if (input.value === text) return true;
 
   // Fallback: controlled character-by-character entry.
@@ -65,9 +76,9 @@ export async function typeQuery(input: HTMLInputElement, text: string, signal?: 
     setValue(expected);
     inputEvents(input, ch, "insertText");
     fire(input, new KeyboardEvent("keyup", { key: ch, bubbles: true }));
-    await delay(25, signal);
+    await delay(timing.typeFallbackCharMs, signal);
   }
-  await delay(60, signal);
+  await delay(timing.typeFallbackSettleMs, signal);
   return input.value === text;
 }
 

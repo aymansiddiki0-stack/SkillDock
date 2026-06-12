@@ -21,6 +21,10 @@ export interface EngineTiming {
   optionsTimeoutMs: number;
   /** Max wait for the selected-chip confirmation after clicking an option. */
   verifyTimeoutMs: number;
+  /** Max wait for the Skills field to reappear after a rerender. */
+  reacquireFieldTimeoutMs: number;
+  /** Max wait for a cached dropdown to close before treating it as stale. */
+  staleDropdownCloseTimeoutMs: number;
   /** Small settle delay between skills. */
   betweenSkillsMs: number;
   /** Pause after typing, before Enter, so the framework commits the value. */
@@ -29,6 +33,16 @@ export interface EngineTiming {
   settleAfterEnterMs: number;
   /** On an empty/"no matches" state, wait this long and re-read once before accepting it. */
   emptyRecheckMs: number;
+  /** Pause after setting the value wholesale, before checking it stuck. */
+  typeCommitCheckMs: number;
+  /** Per-character pacing for the character-by-character typing fallback. */
+  typeFallbackCharMs: number;
+  /** Pause after the typing fallback completes, before checking it stuck. */
+  typeFallbackSettleMs: number;
+  /** Pause between ArrowDown presses in the keyboard-highlight fallback. */
+  arrowStepDelayMs: number;
+  /** Safety-net poll interval for waits on non-mutation state changes. */
+  pollMs: number;
 }
 
 const MAX_ATTEMPTS_PER_SKILL = 2;
@@ -36,10 +50,17 @@ const MAX_ATTEMPTS_PER_SKILL = 2;
 const DEFAULT_TIMING: EngineTiming = {
   optionsTimeoutMs: 8000,
   verifyTimeoutMs: 4000,
+  reacquireFieldTimeoutMs: 5000,
+  staleDropdownCloseTimeoutMs: 1500,
   betweenSkillsMs: 250,
   settleAfterTypeMs: 400,
   settleAfterEnterMs: 800,
   emptyRecheckMs: 1500,
+  typeCommitCheckMs: 60,
+  typeFallbackCharMs: 25,
+  typeFallbackSettleMs: 60,
+  arrowStepDelayMs: 80,
+  pollMs: 150,
 };
 
 export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]> {
@@ -62,7 +83,7 @@ export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]>
     }
     report(skill);
     try {
-      field = await reacquireField(field, signal);
+      field = await reacquireField(field, timing, signal);
       const result = await processSkill(field, skill, timing, signal, log);
       console.warn(`[SkillDock] "${result.skill}" → ${result.status}${result.detail ? ` (${result.detail})` : ""}`);
       results.push(result);
@@ -87,14 +108,19 @@ export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]>
 }
 
 /** Re-run the locator when the input was replaced by a rerender. */
-async function reacquireField(field: HTMLInputElement, signal: AbortSignal): Promise<HTMLInputElement> {
+async function reacquireField(field: HTMLInputElement, timing: EngineTiming, signal: AbortSignal): Promise<HTMLInputElement> {
   if (field.isConnected) return field;
   const found = await waitFor(
     () => {
       const res = locateSkillsField(field.ownerDocument);
       return res.kind === "found" && res.field instanceof HTMLInputElement ? res.field : null;
     },
-    { description: "the Skills field to reappear after a rerender", timeoutMs: 5000, signal },
+    {
+      description: "the Skills field to reappear after a rerender",
+      timeoutMs: timing.reacquireFieldTimeoutMs,
+      pollMs: timing.pollMs,
+      signal,
+    },
   );
   return found;
 }
@@ -113,9 +139,9 @@ async function processSkill(
   let lastFailure: SkillResult | null = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_SKILL; attempt++) {
-    if (!field.isConnected) field = await reacquireField(field, signal);
+    if (!field.isConnected) field = await reacquireField(field, timing, signal);
 
-    const typed = await typeQuery(field, skill, signal);
+    const typed = await typeQuery(field, skill, timing, signal);
     if (!typed) {
       lastFailure = { skill, status: "error", detail: "Workday rejected the entered query text" };
       continue;
@@ -135,7 +161,8 @@ async function processSkill(
       try {
         await waitFor(() => (readDropdownState(field) === null ? true : null), {
           description: "the cached dropdown to close",
-          timeoutMs: 1500,
+          timeoutMs: timing.staleDropdownCloseTimeoutMs,
+          pollMs: timing.pollMs,
           signal,
         });
         stale = null; // closed cleanly; whatever appears next is fresh
@@ -172,6 +199,7 @@ async function processSkill(
         {
           description: `fresh suggestions for "${skill}"`,
           timeoutMs: timing.optionsTimeoutMs,
+          pollMs: timing.pollMs,
           signal,
         },
       );
@@ -219,22 +247,22 @@ async function processSkill(
     const before = snapshotSelection(field);
     let selectedVia = "click";
     clickOption(match);
-    let confirmed = await confirmSelection(field, before, skill, match, timing.verifyTimeoutMs, signal);
+    let confirmed = await confirmSelection(field, before, skill, match, timing, signal);
 
     if (!confirmed) {
       // Some tenants ignore page-dispatched clicks entirely. Keyboard
       // interaction is known to work on those (typing + Enter already ran
       // the search), so fall back to it: ArrowDown until the highlighted
       // row (aria-activedescendant) is the exact match, then press Enter.
-      const highlighted = await highlightByKeyboard(field, skill, state.listbox, signal, log);
+      const highlighted = await highlightByKeyboard(field, skill, state.listbox, timing, signal, log);
       if (highlighted) {
         selectedVia = "keyboard";
         pressKey(field, "Enter");
-        confirmed = await confirmSelection(field, before, skill, highlighted, timing.verifyTimeoutMs, signal);
+        confirmed = await confirmSelection(field, before, skill, highlighted, timing, signal);
         if (!confirmed) {
           // A few checkbox menus toggle on Space instead of Enter.
           pressKey(field, " ", "Space");
-          confirmed = await confirmSelection(field, before, skill, highlighted, timing.verifyTimeoutMs, signal);
+          confirmed = await confirmSelection(field, before, skill, highlighted, timing, signal);
         }
       }
     }
@@ -250,7 +278,7 @@ async function processSkill(
 
     // Last chance: the confirmation signals may simply have been missed —
     // most often because a rerender swapped the input out from under us.
-    if (!field.isConnected) field = await reacquireField(field, signal);
+    if (!field.isConnected) field = await reacquireField(field, timing, signal);
     if (isSkillSelected(field, skill)) return { skill, status: "added" };
     clearQuery(field);
     dismissDropdown(field);
@@ -286,7 +314,7 @@ async function confirmSelection(
   before: ReturnType<typeof snapshotSelection>,
   skill: string,
   option: HTMLElement,
-  timeoutMs: number,
+  timing: EngineTiming,
   signal: AbortSignal,
 ): Promise<boolean> {
   try {
@@ -295,7 +323,12 @@ async function confirmSelection(
         selectionConfirmed(field, before, skill) || (option.isConnected && isOptionSelected(option))
           ? true
           : null,
-      { description: `confirmation that "${skill}" was added`, timeoutMs, signal },
+      {
+        description: `confirmation that "${skill}" was added`,
+        timeoutMs: timing.verifyTimeoutMs,
+        pollMs: timing.pollMs,
+        signal,
+      },
     );
     return true;
   } catch (err) {
@@ -317,6 +350,7 @@ async function highlightByKeyboard(
   field: HTMLInputElement,
   skill: string,
   listbox: Element | null,
+  timing: EngineTiming,
   signal: AbortSignal,
   log: (...args: unknown[]) => void,
 ): Promise<HTMLElement | null> {
@@ -339,7 +373,7 @@ async function highlightByKeyboard(
     }
     pressKey(field, "ArrowDown");
     try {
-      await delay(80, signal);
+      await delay(timing.arrowStepDelayMs, signal);
     } catch {
       return null;
     }
