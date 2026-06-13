@@ -1,3 +1,6 @@
+export type SpeedMode = "slow" | "medium" | "fast";
+export const DEFAULT_SPEED_MODE: SpeedMode = "slow";
+
 /** Outcome for a single requested skill. */
 export type SkillResultStatus =
   | "added"

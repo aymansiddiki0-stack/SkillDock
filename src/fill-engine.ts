@@ -4,14 +4,16 @@ import { locateSkillsField } from "./workday/locate-skills-field";
 import { clearQuery, clickOption, dismissDropdown, pressEnter, pressKey, typeQuery } from "./workday/interact-with-combobox";
 import { activeOption, isOptionSelected, optionText, popupDiagnostics, readDropdownState } from "./workday/locate-dropdown";
 import { isSkillSelected, selectionConfirmed, snapshotSelection } from "./workday/verify-selection";
-import type { RunProgress, SkillResult } from "./types";
+import type { RunProgress, SkillResult, SpeedMode } from "./types";
 
 export interface EngineOptions {
   field: HTMLInputElement;
   skills: string[];
   signal: AbortSignal;
   onProgress: (progress: RunProgress) => void;
-  /** Overridable timeouts (tests use short values). */
+  /** Which timing preset to run at. Defaults to "slow". */
+  speedMode?: SpeedMode;
+  /** Overrides layered on top of the resolved preset (tests use short values). */
   timing?: Partial<EngineTiming>;
   debug?: boolean;
 }
@@ -47,24 +49,67 @@ export interface EngineTiming {
 
 const MAX_ATTEMPTS_PER_SKILL = 2;
 
-const DEFAULT_TIMING: EngineTiming = {
-  optionsTimeoutMs: 8000,
-  verifyTimeoutMs: 4000,
-  reacquireFieldTimeoutMs: 5000,
-  staleDropdownCloseTimeoutMs: 1500,
-  betweenSkillsMs: 250,
-  settleAfterTypeMs: 400,
-  settleAfterEnterMs: 800,
-  emptyRecheckMs: 1500,
-  typeCommitCheckMs: 60,
-  typeFallbackCharMs: 25,
-  typeFallbackSettleMs: 60,
-  arrowStepDelayMs: 80,
-  pollMs: 150,
+/**
+ * Slow preserves the original timing exactly. Medium/Fast only shrink the
+ * settle delays and poll granularity — the four max-safety timeouts
+ * (optionsTimeoutMs, verifyTimeoutMs, reacquireFieldTimeoutMs,
+ * staleDropdownCloseTimeoutMs) stay identical across every mode, since they
+ * guard against slow Workday tenants rather than pace our own actions.
+ */
+export const TIMING_PRESETS: Record<SpeedMode, EngineTiming> = {
+  slow: {
+    optionsTimeoutMs: 8000,
+    verifyTimeoutMs: 4000,
+    reacquireFieldTimeoutMs: 5000,
+    staleDropdownCloseTimeoutMs: 1500,
+    betweenSkillsMs: 250,
+    settleAfterTypeMs: 400,
+    settleAfterEnterMs: 800,
+    emptyRecheckMs: 1500,
+    typeCommitCheckMs: 60,
+    typeFallbackCharMs: 25,
+    typeFallbackSettleMs: 60,
+    arrowStepDelayMs: 80,
+    pollMs: 150,
+  },
+  medium: {
+    optionsTimeoutMs: 8000,
+    verifyTimeoutMs: 4000,
+    reacquireFieldTimeoutMs: 5000,
+    staleDropdownCloseTimeoutMs: 1500,
+    betweenSkillsMs: 120,
+    settleAfterTypeMs: 200,
+    settleAfterEnterMs: 400,
+    emptyRecheckMs: 900,
+    typeCommitCheckMs: 40,
+    typeFallbackCharMs: 15,
+    typeFallbackSettleMs: 40,
+    arrowStepDelayMs: 50,
+    pollMs: 100,
+  },
+  fast: {
+    optionsTimeoutMs: 8000,
+    verifyTimeoutMs: 4000,
+    reacquireFieldTimeoutMs: 5000,
+    staleDropdownCloseTimeoutMs: 1500,
+    betweenSkillsMs: 50,
+    settleAfterTypeMs: 100,
+    settleAfterEnterMs: 200,
+    emptyRecheckMs: 500,
+    typeCommitCheckMs: 25,
+    typeFallbackCharMs: 10,
+    typeFallbackSettleMs: 25,
+    arrowStepDelayMs: 30,
+    pollMs: 60,
+  },
 };
 
+export function resolveTiming(speedMode: SpeedMode | undefined, overrides?: Partial<EngineTiming>): EngineTiming {
+  return { ...TIMING_PRESETS[speedMode ?? "slow"], ...overrides };
+}
+
 export async function runFillEngine(opts: EngineOptions): Promise<SkillResult[]> {
-  const timing: EngineTiming = { ...DEFAULT_TIMING, ...opts.timing };
+  const timing: EngineTiming = resolveTiming(opts.speedMode, opts.timing);
   const { skills, signal, onProgress } = opts;
   const log = opts.debug
     ? (...args: unknown[]) => console.warn("[SkillDock]", ...args)
