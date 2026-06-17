@@ -1,6 +1,7 @@
 import { parseSkillList } from "../normalization";
 import { loadLastReport, loadSkills, saveSkills } from "../storage";
 import type { PickFieldResponse, PopupMessage, RunReport, SkillResult, StartResponse, StatusResponse } from "../types";
+import { DEFAULT_SPEED_MODE } from "../types";
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -82,7 +83,7 @@ async function onFill(): Promise<void> {
   const injected = await injectContentScript();
   if (!injected) return;
 
-  const response = (await sendToTab({ type: "skilldock:start", skills }).catch(
+  const response = (await sendToTab({ type: "skilldock:start", skills, speedMode: DEFAULT_SPEED_MODE }).catch(
     () => null,
   )) as StartResponse | null;
 

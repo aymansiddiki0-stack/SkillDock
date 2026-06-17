@@ -1,7 +1,7 @@
 import { runFillEngine } from "./fill-engine";
 import { locateSkillsField } from "./workday/locate-skills-field";
 import { saveLastReport } from "./storage";
-import type { PickFieldResponse, PopupMessage, RunReport, RunStatus, StartResponse, StatusResponse } from "./types";
+import type { PickFieldResponse, PopupMessage, RunReport, RunStatus, SpeedMode, StartResponse, StatusResponse } from "./types";
 
 declare global {
   interface Window {
@@ -33,7 +33,7 @@ function init(): void {
         return false;
       }
       case "skilldock:start": {
-        const response = startRun(message.skills);
+        const response = startRun(message.skills, message.speedMode);
         sendResponse(response);
         return false;
       }
@@ -62,7 +62,7 @@ function init(): void {
     };
   }
 
-  function startRun(skills: string[]): StartResponse {
+  function startRun(skills: string[], speedMode: SpeedMode): StartResponse {
     if (status.phase === "running") {
       return { ok: false, reason: "already-running" };
     }
@@ -85,6 +85,7 @@ function init(): void {
       field: resolved.field,
       skills,
       signal: controller.signal,
+      speedMode,
       onProgress: (progress) => {
         status = { phase: "running", progress };
       },

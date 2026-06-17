@@ -47,7 +47,7 @@ export interface RunStatus {
 }
 
 export type PopupMessage =
-  | { type: "skilldock:start"; skills: string[] }
+  | { type: "skilldock:start"; skills: string[]; speedMode: SpeedMode }
   | { type: "skilldock:cancel" }
   | { type: "skilldock:status" }
   | { type: "skilldock:pick-field" };

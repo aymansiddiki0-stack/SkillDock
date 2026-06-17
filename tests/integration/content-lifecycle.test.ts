@@ -63,11 +63,11 @@ describe("content-script run lifecycle", () => {
 
     expect((await status()).phase).toBe("idle");
 
-    const start = (await send({ type: "skilldock:start", skills: ["Python", "C++", "Node"] })) as { ok: boolean };
+    const start = (await send({ type: "skilldock:start", skills: ["Python", "C++", "Node"], speedMode: "slow" })) as { ok: boolean };
     expect(start.ok).toBe(true);
 
     // Duplicate start while running is rejected.
-    const dup = (await send({ type: "skilldock:start", skills: ["Python"] })) as {
+    const dup = (await send({ type: "skilldock:start", skills: ["Python"], speedMode: "slow" })) as {
       ok: boolean;
       reason?: string;
     };
@@ -88,7 +88,7 @@ describe("content-script run lifecycle", () => {
 
   it("cancels a run via the cancel message", { timeout: 30000 }, async () => {
     harness = mountHarness({ catalog: ["Python", "C++", "Power BI"], suggestDelayMs: 120 });
-    const start = (await send({ type: "skilldock:start", skills: ["Python", "C++", "Power BI"] })) as {
+    const start = (await send({ type: "skilldock:start", skills: ["Python", "C++", "Power BI"], speedMode: "slow" })) as {
       ok: boolean;
     };
     expect(start.ok).toBe(true);
@@ -102,7 +102,7 @@ describe("content-script run lifecycle", () => {
 
   it("reports detection failure with a clear message when no field exists", async () => {
     document.body.innerHTML = "<p>Just a job description mentioning skills.</p>";
-    const start = (await send({ type: "skilldock:start", skills: ["Python"] })) as {
+    const start = (await send({ type: "skilldock:start", skills: ["Python"], speedMode: "slow" })) as {
       ok: boolean;
       reason?: string;
       detail?: string;
