@@ -1,6 +1,19 @@
 export type SpeedMode = "slow" | "medium" | "fast";
 export const DEFAULT_SPEED_MODE: SpeedMode = "slow";
 
+/** A named, ordered skill list the user can switch between. */
+export interface Portfolio {
+  id: string;
+  name: string;
+  skills: string[];
+}
+
+export interface PortfolioStore {
+  schemaVersion: 1;
+  portfolios: Portfolio[];
+  activePortfolioId: string;
+}
+
 /** Outcome for a single requested skill. */
 export type SkillResultStatus =
   | "added"
