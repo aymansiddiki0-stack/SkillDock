@@ -3,11 +3,23 @@
  * only (never the page's localStorage). Nothing leaves the browser.
  */
 
-import type { Portfolio, PortfolioStore, RunReport } from "./types";
+import { DEFAULT_SPEED_MODE } from "./types";
+import type { Portfolio, PortfolioStore, RunReport, SpeedMode } from "./types";
 
 const SKILLS_KEY = "skills";
 const LAST_REPORT_KEY = "lastReport";
 const PORTFOLIOS_KEY = "portfolios";
+const SPEED_MODE_KEY = "speedMode";
+
+export async function loadSpeedMode(): Promise<SpeedMode> {
+  const data = await chrome.storage.local.get(SPEED_MODE_KEY);
+  const value = data[SPEED_MODE_KEY];
+  return value === "slow" || value === "medium" || value === "fast" ? value : DEFAULT_SPEED_MODE;
+}
+
+export async function saveSpeedMode(mode: SpeedMode): Promise<void> {
+  await chrome.storage.local.set({ [SPEED_MODE_KEY]: mode });
+}
 
 function newPortfolioId(): string {
   return `p_${crypto.randomUUID()}`;
@@ -64,6 +76,57 @@ export async function loadPortfolioStore(): Promise<PortfolioStore> {
 
 export async function savePortfolioStore(store: PortfolioStore): Promise<void> {
   await chrome.storage.local.set({ [PORTFOLIOS_KEY]: store });
+}
+
+export async function createPortfolio(name: string): Promise<PortfolioStore> {
+  const store = await loadPortfolioStore();
+  const portfolio: Portfolio = { id: newPortfolioId(), name, skills: [] };
+  const updated: PortfolioStore = {
+    ...store,
+    portfolios: [...store.portfolios, portfolio],
+    activePortfolioId: portfolio.id,
+  };
+  await savePortfolioStore(updated);
+  return updated;
+}
+
+export async function renamePortfolio(id: string, name: string): Promise<PortfolioStore> {
+  const store = await loadPortfolioStore();
+  const updated: PortfolioStore = {
+    ...store,
+    portfolios: store.portfolios.map((p) => (p.id === id ? { ...p, name } : p)),
+  };
+  await savePortfolioStore(updated);
+  return updated;
+}
+
+/** No-op when `id` is the last remaining portfolio — there must always be at least one. */
+export async function deletePortfolio(id: string): Promise<PortfolioStore> {
+  const store = await loadPortfolioStore();
+  if (store.portfolios.length <= 1) return store;
+  const portfolios = store.portfolios.filter((p) => p.id !== id);
+  const activePortfolioId = store.activePortfolioId === id ? portfolios[0]!.id : store.activePortfolioId;
+  const updated: PortfolioStore = { ...store, portfolios, activePortfolioId };
+  await savePortfolioStore(updated);
+  return updated;
+}
+
+export async function setActivePortfolio(id: string): Promise<PortfolioStore> {
+  const store = await loadPortfolioStore();
+  if (!store.portfolios.some((p) => p.id === id)) return store;
+  const updated: PortfolioStore = { ...store, activePortfolioId: id };
+  await savePortfolioStore(updated);
+  return updated;
+}
+
+export async function saveActivePortfolioSkills(skills: string[]): Promise<PortfolioStore> {
+  const store = await loadPortfolioStore();
+  const updated: PortfolioStore = {
+    ...store,
+    portfolios: store.portfolios.map((p) => (p.id === store.activePortfolioId ? { ...p, skills } : p)),
+  };
+  await savePortfolioStore(updated);
+  return updated;
 }
 
 export async function loadSkills(): Promise<string[]> {
