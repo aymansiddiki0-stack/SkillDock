@@ -9,7 +9,7 @@ await mkdir(outdir, { recursive: true });
 await build({
   entryPoints: [
     { in: "src/content.ts", out: "content" },
-    { in: "src/popup/popup.ts", out: "popup" },
+    { in: "src/popup/popup-entry.ts", out: "popup" },
   ],
   outdir,
   bundle: true,

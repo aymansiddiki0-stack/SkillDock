@@ -23,9 +23,7 @@ const resultGroups = $<HTMLDivElement>("result-groups");
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-init();
-
-async function init(): Promise<void> {
+export async function init(): Promise<void> {
   const skills = await loadSkills();
   skillsInput.value = skills.join("\n");
   updateCount(skills.length);
