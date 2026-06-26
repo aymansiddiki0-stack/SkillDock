@@ -1,7 +1,6 @@
 import { parseSkillList } from "../normalization";
-import { loadLastReport, loadSkills, saveSkills } from "../storage";
-import type { PickFieldResponse, PopupMessage, RunReport, SkillResult, StartResponse, StatusResponse } from "../types";
-import { DEFAULT_SPEED_MODE } from "../types";
+import { loadLastReport, loadSkills, loadSpeedMode, saveSkills, saveSpeedMode } from "../storage";
+import type { PickFieldResponse, PopupMessage, RunReport, SkillResult, SpeedMode, StartResponse, StatusResponse } from "../types";
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -9,6 +8,7 @@ const $ = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
+const speedSelect = $<HTMLSelectElement>("speed-select");
 const skillsInput = $<HTMLTextAreaElement>("skills-input");
 const skillCount = $<HTMLSpanElement>("skill-count");
 const saveBtn = $<HTMLButtonElement>("save-btn");
@@ -28,10 +28,13 @@ export async function init(): Promise<void> {
   skillsInput.value = skills.join("\n");
   updateCount(skills.length);
 
+  speedSelect.value = await loadSpeedMode();
+
   saveBtn.addEventListener("click", onSave);
   fillBtn.addEventListener("click", onFill);
   stopBtn.addEventListener("click", onStop);
   pickBtn.addEventListener("click", onPickField);
+  speedSelect.addEventListener("change", onSpeedChange);
 
   const status = await sendToTab({ type: "skilldock:status" }).catch(() => null);
   if (status && "status" in status) {
@@ -81,9 +84,11 @@ async function onFill(): Promise<void> {
   const injected = await injectContentScript();
   if (!injected) return;
 
-  const response = (await sendToTab({ type: "skilldock:start", skills, speedMode: DEFAULT_SPEED_MODE }).catch(
-    () => null,
-  )) as StartResponse | null;
+  const response = (await sendToTab({
+    type: "skilldock:start",
+    skills,
+    speedMode: speedSelect.value as SpeedMode,
+  }).catch(() => null)) as StartResponse | null;
 
   if (!response) {
     showMessage("Could not reach the page. Reload the Workday tab and try again.", true);
@@ -101,6 +106,10 @@ async function onFill(): Promise<void> {
   }
   enterRunningUi();
   startPolling();
+}
+
+async function onSpeedChange(): Promise<void> {
+  await saveSpeedMode(speedSelect.value as SpeedMode);
 }
 
 async function onStop(): Promise<void> {
