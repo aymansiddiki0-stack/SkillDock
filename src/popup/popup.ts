@@ -1,6 +1,26 @@
 import { parseSkillList } from "../normalization";
-import { loadLastReport, loadSkills, loadSpeedMode, saveSkills, saveSpeedMode } from "../storage";
-import type { PickFieldResponse, PopupMessage, RunReport, SkillResult, SpeedMode, StartResponse, StatusResponse } from "../types";
+import {
+  createPortfolio,
+  deletePortfolio,
+  loadLastReport,
+  loadPortfolioStore,
+  loadSpeedMode,
+  renamePortfolio,
+  saveActivePortfolioSkills,
+  saveSpeedMode,
+  setActivePortfolio,
+} from "../storage";
+import type {
+  PickFieldResponse,
+  Portfolio,
+  PopupMessage,
+  PortfolioStore,
+  RunReport,
+  SkillResult,
+  SpeedMode,
+  StartResponse,
+  StatusResponse,
+} from "../types";
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -8,6 +28,11 @@ const $ = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
+const portfolioSelect = $<HTMLSelectElement>("portfolio-select");
+const portfolioNameInput = $<HTMLInputElement>("portfolio-name-input");
+const portfolioNewBtn = $<HTMLButtonElement>("portfolio-new-btn");
+const portfolioRenameBtn = $<HTMLButtonElement>("portfolio-rename-btn");
+const portfolioDeleteBtn = $<HTMLButtonElement>("portfolio-delete-btn");
 const speedSelect = $<HTMLSelectElement>("speed-select");
 const skillsInput = $<HTMLTextAreaElement>("skills-input");
 const skillCount = $<HTMLSpanElement>("skill-count");
@@ -22,11 +47,12 @@ const resultsSection = $<HTMLElement>("results");
 const resultGroups = $<HTMLDivElement>("result-groups");
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let currentStore: PortfolioStore;
 
 export async function init(): Promise<void> {
-  const skills = await loadSkills();
-  skillsInput.value = skills.join("\n");
-  updateCount(skills.length);
+  currentStore = await loadPortfolioStore();
+  renderPortfolioSelect();
+  loadActiveSkillsIntoTextarea();
 
   speedSelect.value = await loadSpeedMode();
 
@@ -35,6 +61,11 @@ export async function init(): Promise<void> {
   stopBtn.addEventListener("click", onStop);
   pickBtn.addEventListener("click", onPickField);
   speedSelect.addEventListener("change", onSpeedChange);
+  portfolioSelect.addEventListener("change", onPortfolioChange);
+  portfolioNewBtn.addEventListener("click", () => beginPortfolioEdit("new"));
+  portfolioRenameBtn.addEventListener("click", () => beginPortfolioEdit("rename"));
+  portfolioDeleteBtn.addEventListener("click", onPortfolioDelete);
+  portfolioNameInput.addEventListener("keydown", onPortfolioNameKeydown);
 
   const status = await sendToTab({ type: "skilldock:status" }).catch(() => null);
   if (status && "status" in status) {
@@ -56,9 +87,77 @@ function updateCount(n: number): void {
   skillCount.textContent = `${n} saved`;
 }
 
+function activePortfolio(): Portfolio {
+  return currentStore.portfolios.find((p) => p.id === currentStore.activePortfolioId)!;
+}
+
+function renderPortfolioSelect(): void {
+  portfolioSelect.replaceChildren(
+    ...currentStore.portfolios.map((p) => {
+      const option = document.createElement("option");
+      option.value = p.id;
+      option.textContent = p.name;
+      return option;
+    }),
+  );
+  portfolioSelect.value = currentStore.activePortfolioId;
+  portfolioDeleteBtn.disabled = currentStore.portfolios.length <= 1;
+}
+
+function loadActiveSkillsIntoTextarea(): void {
+  const skills = activePortfolio().skills;
+  skillsInput.value = skills.join("\n");
+  updateCount(skills.length);
+}
+
+async function onPortfolioChange(): Promise<void> {
+  currentStore = await setActivePortfolio(portfolioSelect.value);
+  loadActiveSkillsIntoTextarea();
+}
+
+function beginPortfolioEdit(mode: "new" | "rename"): void {
+  portfolioSelect.hidden = true;
+  portfolioNameInput.hidden = false;
+  portfolioNameInput.dataset.mode = mode;
+  portfolioNameInput.value = mode === "rename" ? activePortfolio().name : "";
+  portfolioNameInput.focus();
+  portfolioNameInput.select();
+}
+
+function endPortfolioEdit(): void {
+  portfolioNameInput.hidden = true;
+  portfolioSelect.hidden = false;
+  delete portfolioNameInput.dataset.mode;
+}
+
+async function onPortfolioNameKeydown(event: KeyboardEvent): Promise<void> {
+  if (event.key === "Escape") {
+    endPortfolioEdit();
+    return;
+  }
+  if (event.key !== "Enter") return;
+  const mode = portfolioNameInput.dataset.mode;
+  const name = portfolioNameInput.value.trim();
+  if (name) {
+    if (mode === "new") currentStore = await createPortfolio(name);
+    else if (mode === "rename") currentStore = await renamePortfolio(currentStore.activePortfolioId, name);
+    renderPortfolioSelect();
+    loadActiveSkillsIntoTextarea();
+  }
+  endPortfolioEdit();
+}
+
+async function onPortfolioDelete(): Promise<void> {
+  if (currentStore.portfolios.length <= 1) return;
+  if (!window.confirm(`Delete "${activePortfolio().name}"? This cannot be undone.`)) return;
+  currentStore = await deletePortfolio(currentStore.activePortfolioId);
+  renderPortfolioSelect();
+  loadActiveSkillsIntoTextarea();
+}
+
 async function onSave(): Promise<void> {
   const skills = parseSkillList(skillsInput.value);
-  await saveSkills(skills);
+  currentStore = await saveActivePortfolioSkills(skills);
   skillsInput.value = skills.join("\n");
   updateCount(skills.length);
   saveNote.textContent = "Saved";
@@ -77,7 +176,7 @@ async function onFill(): Promise<void> {
     showMessage("Add at least one skill, then save.", true);
     return;
   }
-  await saveSkills(skills);
+  currentStore = await saveActivePortfolioSkills(skills);
   skillsInput.value = skills.join("\n");
   updateCount(skills.length);
 

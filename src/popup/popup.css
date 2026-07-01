@@ -86,13 +86,27 @@ button.danger {
 
 button:disabled { opacity: 0.55; cursor: default; }
 
-select {
+select,
+.portfolio-name-input {
   padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: #fff;
   color: var(--text);
   font: inherit;
+}
+
+#portfolio-select,
+.portfolio-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.portfolio-actions { gap: 6px; }
+
+button.small {
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 textarea:focus-visible,

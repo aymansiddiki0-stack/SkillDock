@@ -12,6 +12,19 @@
   </header>
 
   <main>
+    <section aria-label="Skill portfolio">
+      <div class="row">
+        <label for="portfolio-select">Skill list</label>
+        <select id="portfolio-select"></select>
+        <input id="portfolio-name-input" type="text" class="portfolio-name-input" hidden />
+      </div>
+      <div class="row portfolio-actions">
+        <button id="portfolio-new-btn" type="button" class="secondary small">New</button>
+        <button id="portfolio-rename-btn" type="button" class="secondary small">Rename</button>
+        <button id="portfolio-delete-btn" type="button" class="secondary small">Delete</button>
+      </div>
+    </section>
+
     <section aria-label="Fill speed">
       <div class="row">
         <label for="speed-select">Speed</label>
