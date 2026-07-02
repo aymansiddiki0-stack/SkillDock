@@ -68,6 +68,16 @@ describe("waitFor", () => {
     expect(calls).toBe(settled);
   });
 
+  it("reacts to a non-mutation state change at the given pollMs granularity", async () => {
+    let ready = false;
+    setTimeout(() => {
+      ready = true; // plain property flip — no DOM mutation to observe
+    }, 20);
+    await expect(
+      waitFor(() => (ready ? true : null), { description: "ready flag", timeoutMs: 500, pollMs: 5 }),
+    ).resolves.toBe(true);
+  });
+
   it("propagates errors thrown by the check and cleans up", async () => {
     await expect(
       waitFor(() => {
