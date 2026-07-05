@@ -2,8 +2,9 @@
 
 SkillDock runs entirely inside your browser.
 
-- **Stored data:** only your saved skill list and the most recent run report,
-  in `chrome.storage.local` on your machine. Nothing else is stored.
+- **Stored data:** only your saved skill portfolios (named skill lists), your
+  selected fill speed, and the most recent run report, in
+  `chrome.storage.local` on your machine. Nothing else is stored.
 - **Network:** the extension makes no network requests of any kind. There is
   no analytics, no telemetry, no error reporting, no remote configuration,
   and no remotely hosted code.
