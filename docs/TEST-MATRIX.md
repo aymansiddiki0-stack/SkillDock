@@ -11,6 +11,10 @@ records what has actually been verified — no more.
 | 2026-08-01 | Unit: normalization, exact matching (anti-fuzzy proofs), wait/cancellation/cleanup, locator scoring across 7 fixtures, dropdown resolution, chip reading | ✅ pass |
 | 2026-08-01 | Integration: full engine against an interactive Workday-style harness (exact add, skip existing, unmatched, aria-linked and portal listboxes, delayed suggestions, delayed chips, unconfirmed selection, rerendered input, cancellation, progress, per-skill error recovery) | ✅ pass |
 | 2026-08-01 | `tsc --noEmit` (strict), ESLint, esbuild production build | ✅ pass |
+| 2026-08-26 | Unit: timing-preset resolution (slow matches prior defaults, max-safety timeouts identical across modes, settle/poll fields strictly shrink), `waitFor` pollMs granularity | ✅ pass |
+| 2026-08-26 | Unit: portfolio storage migration (legacy skills → default portfolio, idempotent, never discards data, self-heals a corrupted active id), portfolio CRUD and skill-list isolation, speed-mode persistence | ✅ pass |
+| 2026-08-26 | Unit: popup DOM behavior via jsdom (portfolio rendering/switching, inline new/rename/escape, delete guarded at one portfolio, save isolation, speed selector init/persist/propagation) | ✅ pass |
+| 2026-08-26 | Integration: full engine reliability guarantees (exact matching, verification, stale-dropdown protection, rerender handling, cancellation) repeated under slow/medium/fast presets | ✅ pass |
 
 ## Static portal inspection (executed)
 
