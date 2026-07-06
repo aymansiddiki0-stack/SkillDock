@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SkillDock",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Fills the Skills section of Workday job applications from your saved skill list, adding a skill only when Workday offers an exact match. Not affiliated with Workday, Inc.",
   "permissions": [
     "activeTab",

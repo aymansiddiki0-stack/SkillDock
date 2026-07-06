@@ -1,6 +1,6 @@
 {
   "name": "skilldock",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A Chrome extension that reliably fills the Skills section of Workday job applications using exact-match selection only.",
   "private": true,
   "type": "module",
