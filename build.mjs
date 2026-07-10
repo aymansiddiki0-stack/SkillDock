@@ -23,6 +23,8 @@ await build({
 await cp("manifest.json", `${outdir}/manifest.json`);
 await cp("src/popup/popup.html", `${outdir}/popup.html`);
 await cp("src/popup/popup.css", `${outdir}/popup.css`);
+await cp("src/popup/background.jpg", `${outdir}/background.jpg`);
+await cp("src/popup/fonts", `${outdir}/fonts`, { recursive: true });
 await cp("icons", `${outdir}/icons`, { recursive: true });
 
 console.log("Built extension into ./dist — load it via chrome://extensions → Load unpacked.");

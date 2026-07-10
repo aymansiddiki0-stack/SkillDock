@@ -1,4 +1,12 @@
-/* SkillDock popup — system fonts only, no remote assets, no animation. */
+/* SkillDock popup — no remote assets, no animation. Jost Black and the
+   background image ship locally in this folder (see build.mjs). */
+
+@font-face {
+  font-family: "Jost Black";
+  src: url("fonts/Jost-900-Black.ttf") format("truetype");
+  font-weight: 900;
+  font-display: swap;
+}
 
 :root {
   --bg: #ffffff;
@@ -19,15 +27,17 @@ body {
   width: 380px;
   margin: 0;
   padding: 14px;
-  background: var(--bg);
+  background: var(--bg) url("background.jpg") center / cover no-repeat;
   color: var(--text);
   font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 header h1 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-family: "Jost Black", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 0.01em;
 }
 
 .tagline {
