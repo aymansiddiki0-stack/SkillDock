@@ -12,20 +12,18 @@
   </header>
 
   <main>
-    <section aria-label="Skill portfolio">
+    <section class="settings-panel" aria-label="Run settings">
       <div class="row">
         <label for="portfolio-select">SkillSet</label>
         <select id="portfolio-select"></select>
         <input id="portfolio-name-input" type="text" class="portfolio-name-input" hidden />
       </div>
-      <div class="row portfolio-actions">
-        <button id="portfolio-new-btn" type="button" class="secondary small">New</button>
-        <button id="portfolio-rename-btn" type="button" class="secondary small">Rename</button>
-        <button id="portfolio-delete-btn" type="button" class="secondary small">Delete</button>
+      <div class="row ghost-row">
+        <button id="portfolio-new-btn" type="button" class="ghost">New</button>
+        <button id="portfolio-rename-btn" type="button" class="ghost">Rename</button>
+        <button id="portfolio-delete-btn" type="button" class="ghost ghost-danger">Delete</button>
       </div>
-    </section>
-
-    <section aria-label="Fill speed">
+      <hr class="settings-divider" />
       <div class="row">
         <label for="speed-select">Speed</label>
         <select id="speed-select">
