@@ -26,11 +26,6 @@
 
 * { box-sizing: border-box; }
 
-html {
-  border-radius: 12px;
-  overflow: hidden;
-}
-
 body {
   width: 380px;
   margin: 0;
@@ -38,8 +33,6 @@ body {
   background: var(--bg) url("background.jpg") center / cover no-repeat;
   color: var(--text);
   font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
-  border-radius: 12px;
-  overflow: hidden;
 }
 
 header h1 {
