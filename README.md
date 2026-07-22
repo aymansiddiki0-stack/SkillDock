@@ -1,14 +1,33 @@
 # SkillDock: Autofiller for Workday Skill Section
 
+<p align="center">
+  <img src="icons/icon128.png" width="64" alt="SkillDock icon" />
+</p>
+
 Selecting skills on Workday one by one sucks. This is a tool I built for
-myself to help with my own applications. This is a chrome (Manifest V3)
-extension that does one small job extremely reliably: it fills the
-**Skills** section of a Workday job application from your saved skill list,
-adding a skill **only when Workday's dropdown offers an exact match**.
+myself to help with my own applications, published on the
+[Chrome Web Store](https://chromewebstore.google.com/detail/skilldock/bfljgkmhajblneojkjpgchknpblmgfec)
+for anyone else applying through Workday to use too. This is a chrome
+(Manifest V3) extension that does one small job extremely reliably: it fills
+the **Skills** section of a Workday job application from your saved skill
+list, adding a skill **only when Workday's dropdown offers an exact match**.
 
 > This project is an independent productivity tool and is not affiliated
 > with, endorsed by, or sponsored by Workday, Inc. Workday is a trademark of
 > its respective owner.
+
+## Version 1.1.0
+
+- **Multiple SkillSets** — keep several named skill lists (e.g. "Data
+  Engineering", "AI / ML") and switch between them from the popup instead of
+  retyping one list for every job family.
+- **Fill speed** — Slow, Medium, or Fast. All three run the exact same
+  checks; speed only changes how long the engine waits between actions, never
+  what it verifies.
+- **Visual refresh** — new background, a bolder wordmark, and frosted-panel
+  styling for the popup.
+- Existing saved skills migrate automatically into a "My Skills" SkillSet
+  the first time the popup opens after updating — nothing is lost.
 
 ## The problem
 
@@ -17,8 +36,10 @@ one at a time, on every single application. Doing that by hand is tedious.
 
 ## What it does
 
-1. You save a skill list in the popup (one skill per line, stored locally).
-2. On a Workday application's Skills step, click **Fill skills**.
+1. You save one or more named skill lists (**SkillSets**) in the popup —
+   one skill per line, stored locally — and pick which one is active.
+2. On a Workday application's Skills step, pick a fill **speed** and click
+   **Fill skills**.
 3. The extension semantically locates the editable Skills autocomplete,
    skips skills that are already selected, then for each remaining skill:
    types the query, waits for Workday's suggestions, and selects an option
@@ -45,7 +66,8 @@ npm run build      # emits the extension into ./dist
 
 ## Use
 
-1. Click the SkillDock icon, enter your skills one per line, **Save skills**.
+1. Click the SkillDock icon, pick or create a SkillSet, enter skills one per
+   line, **Save skills**.
 2. Open a Workday application and navigate to the step containing the
    **Skills** section (expand it if collapsed).
 3. Click the SkillDock icon → **Fill skills**. You can close the popup; the
@@ -71,9 +93,12 @@ the run continues.
 Two runtime components, no background worker, no frameworks, no runtime
 dependencies:
 
-- **Popup** (`src/popup/`): saves skills, injects the content script into
-  the active tab (`activeTab` + `scripting`), starts/cancels runs, polls
-  status. Stateless: closing it does not stop a run.
+- **Popup** (`src/popup/`): manages SkillSets and the speed setting via
+  `storage.ts`, injects the content script into the active tab (`activeTab` +
+  `scripting`), starts/cancels runs with the active SkillSet's skills and the
+  selected speed, polls status. Stateless: closing it does not stop a run.
+  The fill engine itself never knows about SkillSets — it only ever receives
+  a flat `skills: string[]`.
 - **Content script** (`src/content.ts`): owns the run. It uses:
   - `workday/locate-skills-field.ts`: a **scored semantic locator**
     (accessible name, nearby headings, ARIA combobox semantics, Workday
@@ -94,7 +119,7 @@ dependencies:
 ```mermaid
 flowchart LR
   subgraph Popup
-    UI[popup.ts] -->|save/load| ST[(chrome.storage.local)]
+    UI[popup.ts] -->|SkillSets / speed| ST[(chrome.storage.local)]
     UI -->|inject content.js\nstart / cancel / status| CS
   end
   subgraph "Workday tab (content script)"
@@ -119,7 +144,7 @@ bundles that MV3 accepts directly.
 |---|---|
 | `activeTab` | Grants access to the one tab you invoke the extension on, instead of broad host permissions for every `*.myworkdayjobs.com` shard. |
 | `scripting` | Injects the content script into that tab on demand. |
-| `storage` | Saves your skill list and the last run report locally. |
+| `storage` | Saves your SkillSets, selected speed, and the last run report locally. |
 
 No host permissions, no history/cookies/downloads/clipboard/notifications/
 identity/webRequest. See [PRIVACY.md](PRIVACY.md).
@@ -136,11 +161,15 @@ npm run check       # all of the above
 ```
 
 Tests cover skill-list normalization, the anti-fuzzy exact-match guarantees,
-wait timeout/cancellation/cleanup, locator scoring across seven original
-Workday-style fixtures, dropdown resolution (ARIA-linked, portal-mounted,
-ambiguous), chip reading, and eleven integration scenarios that drive the
-full engine against an interactive harness (delayed suggestions, delayed
-chips, swallowed clicks, rerendered inputs, mid-run cancellation).
+wait timeout/cancellation/cleanup (including poll granularity), locator
+scoring across seven original Workday-style fixtures, dropdown resolution
+(ARIA-linked, portal-mounted, ambiguous), chip reading, timing-preset
+resolution, integration scenarios that drive the full engine against an
+interactive harness (delayed suggestions, delayed chips, swallowed clicks,
+rerendered inputs, mid-run cancellation — repeated under every speed mode to
+prove speed never weakens a reliability guarantee), SkillSet storage
+migration/CRUD/isolation, and popup DOM behavior (SkillSet switching, inline
+rename/new, speed persistence) via jsdom.
 
 ## Supported environment
 
